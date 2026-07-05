@@ -95,8 +95,8 @@ export const api = {
     call<{ share: Share }>('/shares', { method: 'POST', body: JSON.stringify(body) }).then((r) => r.share),
   revokeShare: (id: string) => call<{ ok: boolean }>(`/shares?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
-  getGuidelines: () => call<{ doc: BrandGuidelines }>('/guidelines').then((r) => r.doc),
-  saveGuidelines: (doc: BrandGuidelines) => call<{ doc: BrandGuidelines }>('/guidelines', { method: 'PUT', body: JSON.stringify({ doc }) }).then((r) => r.doc),
+  getGuidelines: (brand: string) => call<{ doc: BrandGuidelines }>(`/guidelines?brand=${encodeURIComponent(brand)}`).then((r) => r.doc),
+  saveGuidelines: (brand: string, doc: BrandGuidelines) => call<{ doc: BrandGuidelines }>('/guidelines', { method: 'PUT', body: JSON.stringify({ brand, doc }) }).then((r) => r.doc),
   uploadGuidelineFile: async (file: File): Promise<GuidelineFile> => {
     const sign = await call<{ uploadUrl: string; path: string; contentType: string }>('/assets', {
       method: 'POST', body: JSON.stringify({ action: 'sign', filename: file.name, contentType: file.type }),

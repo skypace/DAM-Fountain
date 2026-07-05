@@ -62,9 +62,11 @@ export interface Share {
 export interface Member { user_id: string; email: string | null; role: Role; created_at: string }
 
 export interface GuidelineFile { name: string; path?: string; contentType?: string; url?: string }
+export interface GuidelineFont { name: string; note?: string; path?: string; url?: string; format?: string }
+export type BrandKey = 'alameda' | 'brix' | 'shared';
 export interface BrandGuidelines {
   colors: { name: string; hex: string }[];
-  fonts: { name: string; note?: string }[];
+  fonts: GuidelineFont[];
   sections: { title: string; body: string }[];
   files: GuidelineFile[];
 }

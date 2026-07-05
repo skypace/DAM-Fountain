@@ -2,10 +2,11 @@ import { useState } from 'react';
 import {
   Box, Button, Chip, Divider, FormControl, InputLabel, MenuItem, Paper, Select, Stack, TextField, Tooltip,
 } from '@mui/material';
-import { Download, Trash2, X, Tag as TagIcon } from 'lucide-react';
+import { Download, Trash2, X, Tag as TagIcon, Sparkles } from 'lucide-react';
 import type { Asset, Collection } from '../lib/types';
 import { ASSET_TYPES, BRANDS, STATUSES } from '../lib/types';
-import { api } from '../lib/api';
+import { api, downloadZip } from '../lib/api';
+import { mediaKind } from '../lib/media';
 import { useToast } from './Toast';
 
 // Sticky bar shown when 1+ assets are selected — apply one action to all of them.
@@ -25,12 +26,24 @@ export function BulkActionBar({ ids, assets, collections, onDone, onClear }: {
     try { const r = await api.bulkAssets(body); toast(`${label} · ${r.count} asset${r.count === 1 ? '' : 's'}.`); onDone(); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
-  function downloadAll() {
-    assets.filter((a) => ids.includes(a.id)).forEach((a, i) => setTimeout(() => {
-      const el = document.createElement('a'); el.href = a.url; el.target = '_blank'; el.rel = 'noopener'; el.download = a.filename || a.title || 'asset';
-      document.body.appendChild(el); el.click(); el.remove();
-    }, i * 120));
-    toast(`Opening ${ids.length} download${ids.length === 1 ? '' : 's'}…`);
+  const selectedAssets = assets.filter((a) => ids.includes(a.id));
+
+  async function downloadAllZip() {
+    setBusy(true);
+    toast(`Zipping ${ids.length} asset${ids.length === 1 ? '' : 's'}…`);
+    try { await downloadZip(selectedAssets, 'fountain-assets.zip'); }
+    catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
+
+  async function aiTagAll() {
+    const images = selectedAssets.filter((a) => { const k = mediaKind(a.content_type, a.filename); return k === 'image' || k === 'vector'; });
+    if (!images.length) { toast('Select image assets to AI-tag.'); return; }
+    setBusy(true);
+    let ok = 0;
+    try {
+      for (const a of images) { try { await api.aiTag(a.id); ok++; } catch { /* skip */ } }
+      toast(`AI-tagged ${ok} image${ok === 1 ? '' : 's'}.`); onDone();
+    } finally { setBusy(false); }
   }
 
   return (
@@ -83,7 +96,8 @@ export function BulkActionBar({ ids, assets, collections, onDone, onClear }: {
       </FormControl>
 
       <Box sx={{ flex: 1 }} />
-      <Button size="small" startIcon={<Download size={15} />} disabled={busy} onClick={downloadAll}>Download</Button>
+      <Button size="small" startIcon={<Sparkles size={15} />} disabled={busy} onClick={aiTagAll}>AI tag</Button>
+      <Button size="small" startIcon={<Download size={15} />} disabled={busy} onClick={downloadAllZip}>Download ZIP</Button>
       <Button size="small" color="error" startIcon={<Trash2 size={15} />} disabled={busy}
         onClick={() => { if (confirm(`Delete ${ids.length} asset${ids.length === 1 ? '' : 's'}? This removes the files.`)) run({ ids, delete: true }, 'Deleted'); }}>
         Delete

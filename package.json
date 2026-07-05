@@ -15,6 +15,7 @@
     "@mui/material": "^6.1.6",
     "@mui/x-data-grid-pro": "^7.22.2",
     "@mui/x-license": "^7.22.2",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.454.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -60,3 +60,14 @@ export interface Share {
 }
 
 export interface Member { user_id: string; email: string | null; role: Role; created_at: string }
+
+export interface AssetVersion {
+  id: string;
+  version: number;
+  filename: string | null;
+  bytes: number | null;
+  created_at: string;
+  created_by_email: string | null;
+  url: string;
+  thumbnailUrl: string | null;
+}

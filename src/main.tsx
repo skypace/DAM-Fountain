@@ -14,6 +14,7 @@ import { AuthGate } from './components/AuthGate';
 import { LibraryPage } from './pages/LibraryPage';
 import { CollectionsPage } from './pages/CollectionsPage';
 import { CollectionDetailPage } from './pages/CollectionDetailPage';
+import { GuidelinesPage } from './pages/GuidelinesPage';
 import { SharesPage } from './pages/SharesPage';
 import { MembersPage } from './pages/MembersPage';
 import { SharePublicPage } from './pages/SharePublicPage';
@@ -36,6 +37,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     <Route path="/" element={<LibraryPage />} />
                     <Route path="/collections" element={<CollectionsPage />} />
                     <Route path="/collections/:id" element={<CollectionDetailPage />} />
+                    <Route path="/guidelines" element={<GuidelinesPage />} />
                     <Route path="/shares" element={<SharesPage />} />
                     <Route path="/members" element={<MembersPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />

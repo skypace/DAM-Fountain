@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Alert, Box, Button, Chip, CircularProgress, Stack, TextField, Typography } from '@mui/material';
-import { ArrowLeft, Share2, Copy } from 'lucide-react';
+import { ArrowLeft, Share2, Copy, Download } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
-import { api } from '../lib/api';
+import { api, downloadZip } from '../lib/api';
 import { AssetGrid } from '../components/AssetGrid';
 import { AssetDialog } from '../components/AssetDialog';
 import { useToast } from '../components/Toast';
@@ -55,6 +55,7 @@ export function CollectionDetailPage() {
         <Box sx={{ flex: 1 }} />
         <Button size="small" variant={selecting ? 'contained' : 'outlined'} onClick={() => { setSelecting((v) => !v); setSelected(new Set()); }}>{selecting ? 'Done' : 'Select'}</Button>
         {selecting && <Button size="small" color="error" disabled={!selected.size} onClick={removeSelected}>Remove ({selected.size})</Button>}
+        <Button size="small" variant="outlined" startIcon={<Download size={15} />} disabled={!assets.length} onClick={() => downloadZip(assets, `${collection?.name || 'collection'}.zip`)}>Download ZIP</Button>
         <Button size="small" variant="outlined" startIcon={<Share2 size={15} />} onClick={shareCollection}>Share collection</Button>
       </Stack>
 

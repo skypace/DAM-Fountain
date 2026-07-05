@@ -3,8 +3,8 @@ import {
   Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogContent, Divider, FormControl,
   FormControlLabel, InputLabel, MenuItem, Select, Stack, TextField, Typography,
 } from '@mui/material';
-import { Copy, Download, Trash2, Share2, Image as ImageIcon } from 'lucide-react';
-import type { Asset, Collection } from '../lib/types';
+import { Copy, Download, Trash2, Share2, Image as ImageIcon, Sparkles, RefreshCw, History, RotateCcw } from 'lucide-react';
+import type { Asset, AssetVersion, Collection } from '../lib/types';
 import { ASSET_TYPES, BRANDS, STATUSES } from '../lib/types';
 import { api } from '../lib/api';
 import { MediaPreview } from './MediaPreview';
@@ -34,6 +34,34 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
   const [coverIds, setCoverIds] = useState<Set<string>>(
     () => new Set(collections.filter((c) => c.cover_asset_id === asset.id).map((c) => c.id)),
   );
+
+  const [aiBusy, setAiBusy] = useState(false);
+  const [versions, setVersions] = useState<AssetVersion[] | null>(null);
+
+  async function aiTag() {
+    setAiBusy(true);
+    try {
+      const r = await api.aiTag(asset.id);
+      setTags((cur) => [...new Set([...cur, ...r.tags])]);
+      if (r.description && !description) setDescription(r.description);
+      toast(`AI added ${r.tags.length} tag${r.tags.length === 1 ? '' : 's'}.`);
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setAiBusy(false); }
+  }
+  async function replaceFile(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try { const updated = await api.replaceFile(asset.id, file); toast('File replaced (previous version kept).'); onSaved(updated); }
+    catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
+  async function loadVersions() {
+    try { setVersions(await api.listVersions(asset.id)); } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+  }
+  async function restore(versionId: string) {
+    setBusy(true);
+    try { const updated = await api.restoreVersion(asset.id, versionId); toast('Version restored.'); onSaved(updated); }
+    catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
 
   async function toggleCover(colId: string, checked: boolean) {
     setBusy(true);
@@ -109,6 +137,12 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
           <Button size="small" startIcon={<Copy size={15} />} onClick={() => copy(asset.url)}>Copy URL</Button>
           <Button size="small" startIcon={<Download size={15} />} component="a" href={asset.url} target="_blank" rel="noopener">Download</Button>
           <Button size="small" startIcon={<Share2 size={15} />} onClick={share} disabled={busy}>Create share link</Button>
+          {asset.thumbnailUrl && <Button size="small" startIcon={<Sparkles size={15} />} onClick={aiTag} disabled={aiBusy || busy}>{aiBusy ? 'AI tagging…' : 'AI tag'}</Button>}
+          <Button size="small" component="label" startIcon={<RefreshCw size={15} />} disabled={busy}>
+            Replace file
+            <input hidden type="file" onChange={(e) => { replaceFile(e.target.files); e.currentTarget.value = ''; }} />
+          </Button>
+          <Button size="small" startIcon={<History size={15} />} onClick={() => (versions ? setVersions(null) : loadVersions())}>Versions</Button>
           <Box sx={{ flex: 1 }} />
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>Add to collection</InputLabel>
@@ -135,6 +169,31 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
                 />
               ))}
             </Stack>
+          </>
+        )}
+        {versions && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>Version history</Typography>
+            {versions.length === 0
+              ? <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>No previous versions — this is the original.</Typography>
+              : (
+                <Stack spacing={1} sx={{ mt: 1 }}>
+                  {versions.map((v) => (
+                    <Stack key={v.id} direction="row" spacing={1.25} alignItems="center">
+                      <Box sx={{ width: 40, height: 40, borderRadius: 1, bgcolor: 'action.hover', overflow: 'hidden', flexShrink: 0 }}>
+                        {v.thumbnailUrl && <Box component="img" src={v.thumbnailUrl} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                      </Box>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography variant="body2" fontWeight={700} noWrap>v{v.version} · {v.filename}</Typography>
+                        <Typography variant="caption" color="text.secondary">{new Date(v.created_at).toLocaleString()}</Typography>
+                      </Box>
+                      <Button size="small" component="a" href={v.url} target="_blank" rel="noopener">Open</Button>
+                      <Button size="small" startIcon={<RotateCcw size={14} />} onClick={() => restore(v.id)} disabled={busy}>Restore</Button>
+                    </Stack>
+                  ))}
+                </Stack>
+              )}
           </>
         )}
         {shareUrl && (

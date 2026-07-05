@@ -111,6 +111,8 @@ async function handleUpload(event, auth) {
   if (payload.action === 'bulk') return handleBulk(payload);
   if (payload.action === 'sign') return handleSign(payload);
   if (payload.action === 'register') return handleRegister(payload, auth);
+  if (payload.action === 'replace') return handleReplace(payload, auth);
+  if (payload.action === 'restore') return handleRestore(payload, auth);
 
   const { filename, dataBase64, type, brand, title, description, tags } = payload;
   if (!dataBase64) return json({ error: 'dataBase64 is required' }, 400);
@@ -274,6 +276,62 @@ async function handleBulk(payload) {
   return json({ ok: true, count: ids.length });
 }
 
+const FULL_SELECT = '*,asset_tags(tag:tags(id,name)),collection_assets(collection:collections(id,name))';
+
+async function fullAsset(id) {
+  const rows = await db('GET', `assets?id=eq.${q(id)}&select=${FULL_SELECT}`);
+  return rows[0] ? shape(rows[0]) : null;
+}
+
+// Save the asset's current file as a version, then point the asset at a new one.
+async function archiveCurrent(cur, auth) {
+  await db('POST', 'asset_versions', {
+    body: { asset_id: cur.id, version: cur.version || 1, storage_path: cur.storage_path, filename: cur.filename, content_type: cur.content_type, bytes: cur.bytes, created_by: auth.user.id, created_by_email: auth.email },
+    prefer: 'return=minimal',
+  });
+}
+
+async function handleReplace(payload, auth) {
+  const { assetId, path, filename, contentType, sizeBytes } = payload;
+  if (!assetId || !path) return json({ error: 'assetId and path required' }, 400);
+  const rows = await db('GET', `assets?id=eq.${q(assetId)}&select=*`);
+  const cur = rows[0];
+  if (!cur) return json({ error: 'not found' }, 404);
+  await archiveCurrent(cur, auth);
+  await db('PATCH', `assets?id=eq.${q(assetId)}`, {
+    body: { storage_path: path, filename: filename || path.split('/').pop(), content_type: contentType || cur.content_type, bytes: sizeBytes != null ? Number(sizeBytes) : null, version: (cur.version || 1) + 1, updated_at: new Date().toISOString() },
+    prefer: 'return=minimal',
+  });
+  return json({ asset: await fullAsset(assetId) });
+}
+
+async function handleRestore(payload, auth) {
+  const { assetId, versionId } = payload;
+  if (!assetId || !versionId) return json({ error: 'assetId and versionId required' }, 400);
+  const vrows = await db('GET', `asset_versions?id=eq.${q(versionId)}&asset_id=eq.${q(assetId)}&select=*`);
+  const v = vrows[0];
+  if (!v) return json({ error: 'version not found' }, 404);
+  const arows = await db('GET', `assets?id=eq.${q(assetId)}&select=*`);
+  const cur = arows[0];
+  if (!cur) return json({ error: 'not found' }, 404);
+  await archiveCurrent(cur, auth);
+  await db('PATCH', `assets?id=eq.${q(assetId)}`, {
+    body: { storage_path: v.storage_path, filename: v.filename, content_type: v.content_type, bytes: v.bytes, version: (cur.version || 1) + 1, updated_at: new Date().toISOString() },
+    prefer: 'return=minimal',
+  });
+  return json({ asset: await fullAsset(assetId) });
+}
+
+async function handleVersions(assetId) {
+  const rows = await db('GET', `asset_versions?asset_id=eq.${q(assetId)}&select=*&order=version.desc`);
+  return json({
+    versions: rows.map((v) => ({
+      id: v.id, version: v.version, filename: v.filename, bytes: v.bytes, created_at: v.created_at, created_by_email: v.created_by_email,
+      url: publicUrl(v.storage_path), thumbnailUrl: isImg(v.storage_path) ? publicUrl(v.storage_path) : null,
+    })),
+  });
+}
+
 async function handlePatch(event) {
   const payload = JSON.parse(event.body || '{}');
   const id = payload.id;
@@ -305,6 +363,7 @@ export async function handler(event) {
     if (event.httpMethod === 'GET') {
       const auth = await requireRole(event, 'viewer');
       if (!auth.ok) return json({ error: auth.error }, auth.status);
+      if (event.queryStringParameters?.versions) return await handleVersions(event.queryStringParameters.versions);
       return await handleList(event);
     }
     if (event.httpMethod === 'POST') {

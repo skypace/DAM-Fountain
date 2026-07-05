@@ -1,13 +1,14 @@
 import { type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Box, Button, Stack, Typography } from '@mui/material';
-import { Images, FolderOpen, Share2, Users, LogOut } from 'lucide-react';
+import { Images, FolderOpen, Share2, Users, LogOut, BookOpen } from 'lucide-react';
 import { getSession, logout } from '../lib/auth';
 import { ToastProvider } from './Toast';
 
 const NAV = [
   { to: '/', label: 'Library', icon: Images },
   { to: '/collections', label: 'Collections', icon: FolderOpen },
+  { to: '/guidelines', label: 'Guidelines', icon: BookOpen },
   { to: '/shares', label: 'Share Links', icon: Share2 },
   { to: '/members', label: 'Users', icon: Users },
 ];

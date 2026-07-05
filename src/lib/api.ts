@@ -1,5 +1,6 @@
+import JSZip from 'jszip';
 import { token } from './auth';
-import type { Asset, Collection, Member, Share, Tag, AssetType, Brand } from './types';
+import type { Asset, AssetVersion, Collection, Member, Share, Tag, AssetType, Brand } from './types';
 
 const FN = '/.netlify/functions';
 
@@ -57,6 +58,21 @@ export const api = {
   deleteAsset: (id: string) => call<{ ok: boolean }>(`/assets?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
   bulkAssets: (body: { ids: string[]; status?: string; brand?: string; type?: string; addTags?: string[]; collectionId?: string; delete?: boolean }) =>
     call<{ ok: boolean; count: number }>('/assets', { method: 'POST', body: JSON.stringify({ action: 'bulk', ...body }) }),
+  aiTag: (assetId: string) => call<{ tags: string[]; description: string }>('/ai-tag', { method: 'POST', body: JSON.stringify({ assetId }) }),
+  listVersions: (assetId: string) => call<{ versions: AssetVersion[] }>(`/assets?versions=${encodeURIComponent(assetId)}`).then((r) => r.versions),
+  restoreVersion: (assetId: string, versionId: string) =>
+    call<{ asset: Asset }>('/assets', { method: 'POST', body: JSON.stringify({ action: 'restore', assetId, versionId }) }).then((r) => r.asset),
+  replaceFile: async (assetId: string, file: File): Promise<Asset> => {
+    const sign = await call<{ uploadUrl: string; path: string; contentType: string }>('/assets', {
+      method: 'POST', body: JSON.stringify({ action: 'sign', filename: file.name, contentType: file.type }),
+    });
+    const put = await fetch(sign.uploadUrl, { method: 'PUT', headers: { 'content-type': file.type || sign.contentType || 'application/octet-stream', 'x-upsert': 'true' }, body: file });
+    if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+    const reg = await call<{ asset: Asset }>('/assets', {
+      method: 'POST', body: JSON.stringify({ action: 'replace', assetId, path: sign.path, filename: file.name, contentType: file.type, sizeBytes: file.size }),
+    });
+    return reg.asset;
+  },
 
   listTags: () => call<{ tags: Tag[] }>('/tags').then((r) => r.tags),
 
@@ -82,6 +98,34 @@ export const api = {
   setMemberRole: (user_id: string, role: string) => call<{ ok: boolean }>('/members', { method: 'PATCH', body: JSON.stringify({ user_id, role }) }),
   removeMember: (user_id: string) => call<{ ok: boolean }>(`/members?user_id=${encodeURIComponent(user_id)}`, { method: 'DELETE' }),
 };
+
+// Fetch each asset and bundle them into a single .zip download.
+export async function downloadZip(items: { url: string; filename?: string | null; title?: string | null }[], zipName = 'fountain-assets.zip') {
+  const zip = new JSZip();
+  const used = new Set<string>();
+  for (const it of items) {
+    try {
+      const res = await fetch(it.url);
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      let name = (it.filename || it.title || 'asset').replace(/[/\\]/g, '-');
+      if (!/\.[a-z0-9]+$/i.test(name)) {
+        const ext = it.url.split('.').pop()?.split(/[?#]/)[0];
+        if (ext && ext.length <= 5) name += `.${ext}`;
+      }
+      let unique = name; let n = 1;
+      while (used.has(unique)) { const dot = name.lastIndexOf('.'); unique = dot > 0 ? `${name.slice(0, dot)}-${n}${name.slice(dot)}` : `${name}-${n}`; n++; }
+      used.add(unique);
+      zip.file(unique, blob);
+    } catch { /* skip unreachable files */ }
+  }
+  const out = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(out);
+  a.download = zipName;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
 
 export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

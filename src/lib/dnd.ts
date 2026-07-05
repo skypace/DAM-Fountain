@@ -55,7 +55,7 @@ export async function readDropped(dt: DataTransfer): Promise<DroppedFile[]> {
 // created as sub-folders of it. Existing collections are reused by name+parent.
 export async function uploadDroppedTree(
   dropped: DroppedFile[],
-  opts: { parentId?: string | null; type?: AssetType; onProgress?: (done: number, total: number) => void } = {},
+  opts: { parentId?: string | null; type?: AssetType; onProgress?: (done: number, total: number, pct: number) => void } = {},
 ): Promise<{ files: number; collections: number }> {
   const parentId = opts.parentId || null;
   const type = opts.type || 'other';
@@ -69,7 +69,8 @@ export async function uploadDroppedTree(
   }
   const total = dropped.length;
   let done = 0;
-  const bump = () => { done++; opts.onProgress?.(done, total); };
+  const onFile = (fraction: number) => opts.onProgress?.(done, total, fraction);
+  const bump = () => { done++; opts.onProgress?.(done, total, 0); };
 
   const collections = await api.listCollections();
   const cache = new Map<string, string>();
@@ -92,13 +93,13 @@ export async function uploadDroppedTree(
   }
 
   for (const f of looseFiles) {
-    const a = await api.uploadFile(f, { type });
+    const a = await api.uploadFile(f, { type, onProgress: onFile });
     if (parentId) await api.addToCollection(parentId, [a.id]);
     bump();
   }
   for (const [dirKey, files] of byDir) {
     const colId = await ensureDir(dirKey);
-    for (const f of files) { const a = await api.uploadFile(f, { type }); await api.addToCollection(colId, [a.id]); bump(); }
+    for (const f of files) { const a = await api.uploadFile(f, { type, onProgress: onFile }); await api.addToCollection(colId, [a.id]); bump(); }
   }
   return { files: total, collections: created };
 }

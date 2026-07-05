@@ -26,6 +26,21 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export interface AssetFilters { q?: string; type?: string; brand?: string; tag?: string; collection?: string; status?: string }
 
+// PUT a file to a signed storage URL with upload progress. fetch() can't report
+// progress, so large-video uploads use XHR to drive a percentage bar.
+function putWithProgress(url: string, file: File, contentType: string, onProgress?: (fraction: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url, true);
+    xhr.setRequestHeader('content-type', contentType);
+    xhr.setRequestHeader('x-upsert', 'true');
+    if (onProgress && xhr.upload) xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+    xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) { onProgress?.(1); resolve(); } else reject(new Error(`Upload failed (${xhr.status})`)); };
+    xhr.onerror = () => reject(new Error('Upload failed (network)'));
+    xhr.send(file);
+  });
+}
+
 export const api = {
   listAssets: (f: AssetFilters = {}) => {
     const qs = new URLSearchParams();
@@ -36,16 +51,11 @@ export const api = {
     call<{ asset: Asset }>('/assets', { method: 'POST', body: JSON.stringify(body) }).then((r) => r.asset),
   // Signed direct-to-storage upload — works for any file size/type (video, audio,
   // design source files…), bypassing the function request limit.
-  uploadFile: async (file: File, opts: { type?: AssetType; brand?: Brand; tags?: string[] } = {}): Promise<Asset> => {
+  uploadFile: async (file: File, opts: { type?: AssetType; brand?: Brand; tags?: string[]; onProgress?: (fraction: number) => void } = {}): Promise<Asset> => {
     const sign = await call<{ uploadUrl: string; path: string; contentType: string }>('/assets', {
       method: 'POST', body: JSON.stringify({ action: 'sign', filename: file.name, contentType: file.type, type: opts.type }),
     });
-    const put = await fetch(sign.uploadUrl, {
-      method: 'PUT',
-      headers: { 'content-type': file.type || sign.contentType || 'application/octet-stream', 'x-upsert': 'true' },
-      body: file,
-    });
-    if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+    await putWithProgress(sign.uploadUrl, file, file.type || sign.contentType || 'application/octet-stream', opts.onProgress);
     const reg = await call<{ asset: Asset }>('/assets', {
       method: 'POST',
       body: JSON.stringify({ action: 'register', path: sign.path, filename: file.name, contentType: file.type, type: opts.type, brand: opts.brand, tags: opts.tags, sizeBytes: file.size }),

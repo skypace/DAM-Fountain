@@ -20,6 +20,7 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged }: {
   const c = collection;
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pct, setPct] = useState<number | null>(null);
 
   const onDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('application/x-fountain-folder', c.id);
@@ -40,14 +41,18 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged }: {
       if (isFiles) {
         setBusy(true);
         const dropped = await readDropped(dt);
-        if (dropped.length) { const r = await uploadDroppedTree(dropped, { parentId: c.id }); toast(`Uploaded ${r.files} file${r.files === 1 ? '' : 's'} into “${c.name}”.`); onChanged(); }
+        if (dropped.length) {
+          setPct(0);
+          const r = await uploadDroppedTree(dropped, { parentId: c.id, onProgress: (done, total, p) => setPct(Math.round(((done + p) / total) * 100)) });
+          toast(`Uploaded ${r.files} file${r.files === 1 ? '' : 's'} into “${c.name}”.`); onChanged();
+        }
       } else if (assetIds.length) {
         setBusy(true); await api.addToCollection(c.id, assetIds); toast(`Moved ${assetIds.length} asset${assetIds.length === 1 ? '' : 's'} into “${c.name}”.`); onChanged();
       } else if (folderId && folderId !== c.id) {
         setBusy(true); await api.updateCollection(folderId, { parent_id: c.id }); toast(`Nested folder into “${c.name}”.`); onChanged();
       }
     } catch (err) { toast(err instanceof Error ? err.message : String(err)); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setPct(null); }
   }
 
   return (
@@ -67,8 +72,12 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged }: {
       }}
     >
       <Box sx={{ aspectRatio: '16 / 9', bgcolor: 'action.hover', display: 'grid', placeItems: 'center', overflow: 'hidden', pointerEvents: 'none' }}>
-        {busy ? <CircularProgress size={22} />
-          : c.cover ? <MediaPreview url={c.cover.url} filename={c.cover.filename} contentType={c.cover.content_type} variant="thumb" alt={c.name} />
+        {busy ? (
+          <Stack alignItems="center" spacing={0.5}>
+            <CircularProgress size={22} variant={pct === null ? 'indeterminate' : 'determinate'} value={pct ?? 0} />
+            {pct !== null && <Typography variant="caption" color="text.secondary">{pct}%</Typography>}
+          </Stack>
+        ) : c.cover ? <MediaPreview url={c.cover.url} filename={c.cover.filename} contentType={c.cover.content_type} variant="thumb" alt={c.name} />
           : <FolderOpen size={28} opacity={0.4} />}
       </Box>
       <Box sx={{ p: 1.25 }}>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Alert, Box, Button, Chip, CircularProgress, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, CircularProgress, LinearProgress, Paper, Stack, TextField, Typography } from '@mui/material';
 import { ArrowLeft, Share2, Copy, Download, FolderPlus, Folder, UploadCloud } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { api, downloadZip } from '../lib/api';
@@ -28,6 +28,8 @@ export function CollectionDetailPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dropOver, setDropOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number; pct: number } | null>(null);
+  const overallPct = progress && progress.total ? Math.round(((progress.done + progress.pct) / progress.total) * 100) : 0;
 
   async function load() {
     setLoading(true); setError(null);
@@ -56,8 +58,12 @@ export function CollectionDetailPage() {
     e.preventDefault(); setDropOver(false); setUploading(true);
     try {
       const dropped = await readDropped(e.dataTransfer);
-      if (dropped.length) { const r = await uploadDroppedTree(dropped, { parentId: id }); await load(); toast(`Uploaded ${r.files} file${r.files === 1 ? '' : 's'}${r.collections ? ` · ${r.collections} sub-folder${r.collections === 1 ? '' : 's'}` : ''}.`); }
-    } catch (err) { toast(err instanceof Error ? err.message : String(err)); } finally { setUploading(false); }
+      if (dropped.length) {
+        setProgress({ done: 0, total: dropped.length, pct: 0 });
+        const r = await uploadDroppedTree(dropped, { parentId: id, onProgress: (done, total, pct) => setProgress({ done, total, pct }) });
+        await load(); toast(`Uploaded ${r.files} file${r.files === 1 ? '' : 's'}${r.collections ? ` · ${r.collections} sub-folder${r.collections === 1 ? '' : 's'}` : ''}.`);
+      }
+    } catch (err) { toast(err instanceof Error ? err.message : String(err)); } finally { setUploading(false); setProgress(null); }
   }
 
   async function shareCollection() {
@@ -82,13 +88,28 @@ export function CollectionDetailPage() {
       onDrop={onPageDrop}
       sx={{ position: 'relative', minHeight: '60vh' }}
     >
-      {(dropOver || uploading) && (
+      {dropOver && !uploading && (
         <Box sx={{ position: 'fixed', inset: 0, zIndex: 1300, bgcolor: 'rgba(15,23,42,.55)', display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
           <Stack alignItems="center" spacing={1.5} sx={{ color: '#fff' }}>
-            {uploading ? <CircularProgress sx={{ color: '#fff' }} /> : <UploadCloud size={44} />}
-            <Typography variant="h6">{uploading ? 'Uploading…' : `Drop to add to “${collection?.name}”`}</Typography>
-            {!uploading && <Typography variant="body2" sx={{ opacity: 0.85 }}>Folders become sub-folders</Typography>}
+            <UploadCloud size={44} />
+            <Typography variant="h6">{`Drop to add to “${collection?.name}”`}</Typography>
+            <Typography variant="body2" sx={{ opacity: 0.85 }}>Folders become sub-folders</Typography>
           </Stack>
+        </Box>
+      )}
+      {uploading && (
+        <Box sx={{ position: 'fixed', inset: 0, zIndex: 1300, bgcolor: 'rgba(15,23,42,.6)', display: 'grid', placeItems: 'center' }}>
+          <Paper sx={{ p: 3, width: 360, maxWidth: '90vw', borderRadius: 3 }}>
+            <Stack spacing={1.5}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <UploadCloud size={20} />
+                <Typography variant="subtitle1" sx={{ flex: 1 }}>Uploading…</Typography>
+                {progress && <Typography variant="subtitle1" fontWeight={700}>{overallPct}%</Typography>}
+              </Stack>
+              <LinearProgress variant={progress ? 'determinate' : 'indeterminate'} value={overallPct} sx={{ height: 8, borderRadius: 4 }} />
+              {progress && <Typography variant="caption" color="text.secondary">File {Math.min(progress.done + 1, progress.total)} of {progress.total}</Typography>}
+            </Stack>
+          </Paper>
         </Box>
       )}
       <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>

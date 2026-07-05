@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Alert, Box, Button, Chip, CircularProgress, FormControl, InputAdornment, InputLabel, Menu,
+  Alert, Box, Button, Chip, CircularProgress, FormControl, InputAdornment, InputLabel, LinearProgress, Menu,
   MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
 import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus, UploadCloud } from 'lucide-react';
@@ -47,6 +47,8 @@ export function LibraryPage() {
   const folderRef = useRef<HTMLInputElement | null>(null);
   const [dropOver, setDropOver] = useState(false);
   const [chipOver, setChipOver] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number; pct: number } | null>(null);
+  const overallPct = progress && progress.total ? Math.round(((progress.done + progress.pct) / progress.total) * 100) : 0;
 
   const toggleSelect = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   // Merge a section table's selection into the global set without disturbing
@@ -71,14 +73,16 @@ export function LibraryPage() {
   async function upload(files: FileList | null) {
     if (!files?.length) return;
     setBusy(true);
+    const list = Array.from(files);
     let ok = 0;
+    setProgress({ done: 0, total: list.length, pct: 0 });
     try {
-      for (const f of Array.from(files)) {
-        await api.uploadFile(f, { type: uploadType as Asset['type'] });
+      for (let i = 0; i < list.length; i++) {
+        await api.uploadFile(list[i], { type: uploadType as Asset['type'], onProgress: (p) => setProgress({ done: i, total: list.length, pct: p }) });
         ok++;
       }
       toast(`Uploaded ${ok} asset${ok === 1 ? '' : 's'}.`); await load();
-    } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); setProgress(null); }
   }
 
   // Upload one or more folders — each folder (by its immediate name) becomes a
@@ -96,17 +100,19 @@ export function LibraryPage() {
         groups.get(folder)!.push(f);
       }
       const cols = await api.listCollections();
+      const total = files.length;
       let fileCount = 0;
+      setProgress({ done: 0, total, pct: 0 });
       for (const [name, groupFiles] of groups) {
         let col = cols.find((c) => c.name.toLowerCase() === name.toLowerCase());
         if (!col) { col = await api.createCollection(name); cols.push(col); }
         const ids: string[] = [];
-        for (const f of groupFiles) { const a = await api.uploadFile(f, { type: uploadType as Asset['type'] }); ids.push(a.id); fileCount++; }
+        for (const f of groupFiles) { const a = await api.uploadFile(f, { type: uploadType as Asset['type'], onProgress: (p) => setProgress({ done: fileCount, total, pct: p }) }); ids.push(a.id); fileCount++; }
         if (ids.length) await api.addToCollection(col.id, ids);
       }
       await load();
       toast(`Uploaded ${fileCount} file${fileCount === 1 ? '' : 's'} into ${groups.size} collection${groups.size === 1 ? '' : 's'}.`);
-    } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); setProgress(null); }
   }
   // Desktop drop anywhere on the library → upload. Loose files land in the
   // library root; dropped folders become collections (nested trees preserved).
@@ -115,8 +121,12 @@ export function LibraryPage() {
     e.preventDefault(); setDropOver(false); setBusy(true);
     try {
       const dropped = await readDropped(e.dataTransfer);
-      if (dropped.length) { const r = await uploadDroppedTree(dropped, { parentId: collection || null, type: uploadType as Asset['type'] }); await load(); toast(`Uploaded ${r.files} file${r.files === 1 ? '' : 's'}${r.collections ? ` · ${r.collections} collection${r.collections === 1 ? '' : 's'}` : ''}.`); }
-    } catch (err) { toast(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); }
+      if (dropped.length) {
+        setProgress({ done: 0, total: dropped.length, pct: 0 });
+        const r = await uploadDroppedTree(dropped, { parentId: collection || null, type: uploadType as Asset['type'], onProgress: (done, total, pct) => setProgress({ done, total, pct }) });
+        await load(); toast(`Uploaded ${r.files} file${r.files === 1 ? '' : 's'}${r.collections ? ` · ${r.collections} collection${r.collections === 1 ? '' : 's'}` : ''}.`);
+      }
+    } catch (err) { toast(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); setProgress(null); }
   }
   // Drop an asset drag onto a collection chip → move it into that collection.
   async function onChipDrop(e: React.DragEvent, collectionId: string) {
@@ -178,13 +188,30 @@ export function LibraryPage() {
       onDrop={onPageDrop}
       sx={{ position: 'relative', minHeight: '60vh' }}
     >
-      {dropOver && (
+      {dropOver && !progress && (
         <Box sx={{ position: 'fixed', inset: 0, zIndex: 1300, bgcolor: 'rgba(15,23,42,.55)', display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
           <Stack alignItems="center" spacing={1.5} sx={{ color: '#fff' }}>
             <UploadCloud size={44} />
             <Typography variant="h6">{collection ? `Drop to add to “${activeCollection?.name}”` : 'Drop files or folders to upload'}</Typography>
             <Typography variant="body2" sx={{ opacity: 0.85 }}>{collection ? 'Folders become sub-folders' : 'Folders become collections'}</Typography>
           </Stack>
+        </Box>
+      )}
+      {progress && (
+        <Box sx={{ position: 'fixed', inset: 0, zIndex: 1300, bgcolor: 'rgba(15,23,42,.6)', display: 'grid', placeItems: 'center' }}>
+          <Paper sx={{ p: 3, width: 360, maxWidth: '90vw', borderRadius: 3 }}>
+            <Stack spacing={1.5}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <UploadCloud size={20} />
+                <Typography variant="subtitle1" sx={{ flex: 1 }}>Uploading…</Typography>
+                <Typography variant="subtitle1" fontWeight={700}>{overallPct}%</Typography>
+              </Stack>
+              <LinearProgress variant="determinate" value={overallPct} sx={{ height: 8, borderRadius: 4 }} />
+              <Typography variant="caption" color="text.secondary">
+                File {Math.min(progress.done + 1, progress.total)} of {progress.total}
+              </Typography>
+            </Stack>
+          </Paper>
         </Box>
       )}
       <PageHeader

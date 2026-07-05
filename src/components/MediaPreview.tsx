@@ -48,23 +48,26 @@ function HeicImage({ url, alt }: { url: string; alt?: string }) {
 
 // Renders an actual preview of an asset — image, video frame/player, or embedded
 // PDF page — falling back to a kind icon only for audio/design/other.
-export function MediaPreview({ url, filename, contentType, variant, alt }: {
+export function MediaPreview({ url, filename, contentType, variant, alt, fit }: {
   url: string;
   filename?: string | null;
   contentType?: string | null;
   variant: 'thumb' | 'full';
   alt?: string;
+  fit?: 'contain' | 'cover';
 }) {
   const kind = mediaKind(contentType, filename);
   const full = variant === 'full';
   const Icon = MEDIA_META[kind].icon;
+  const imgFit = fit || 'contain';
+  const vidFit = fit || (full ? 'contain' : 'cover');
 
   if (isHeic(url, filename, contentType)) {
     return <HeicImage url={url} alt={alt} />;
   }
 
   if (kind === 'image' || kind === 'vector') {
-    return <Box component="img" src={url} alt={alt || ''} loading="lazy" sx={{ width: '100%', height: '100%', objectFit: full ? 'contain' : 'contain' }} />;
+    return <Box component="img" src={url} alt={alt || ''} loading="lazy" sx={{ width: '100%', height: '100%', objectFit: imgFit }} />;
   }
 
   if (kind === 'video') {
@@ -76,7 +79,7 @@ export function MediaPreview({ url, filename, contentType, variant, alt }: {
         playsInline
         preload="metadata"
         controls={full}
-        sx={{ width: '100%', height: '100%', objectFit: full ? 'contain' : 'cover', bgcolor: '#000', display: 'block' }}
+        sx={{ width: '100%', height: '100%', objectFit: vidFit, bgcolor: '#000', display: 'block' }}
       />
     );
   }

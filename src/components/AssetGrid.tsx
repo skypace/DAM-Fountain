@@ -3,6 +3,7 @@ import { Check } from 'lucide-react';
 import type { Asset } from '../lib/types';
 import { mediaKind, MEDIA_META } from '../lib/media';
 import { ASSET_MIME } from '../lib/dnd';
+import { usePreviewBg, previewBgSx } from '../lib/previewBg';
 import { MediaPreview } from './MediaPreview';
 
 export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect }: {
@@ -12,12 +13,14 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
   selected?: Set<string>;
   onToggleSelect?: (id: string) => void;
 }) {
+  const [bg] = usePreviewBg();
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 2 }}>
       {assets.map((a) => {
         const isSel = !!(selectable && selected?.has(a.id));
         const act = () => (selectable && onToggleSelect ? onToggleSelect(a.id) : onOpen(a));
         const kind = mediaKind(a.content_type, a.filename);
+        const usesBg = kind === 'image' || kind === 'vector';
         // Drag an asset (or the whole selection, if this one is selected) onto a
         // folder to move it there.
         const onDragStart = (e: React.DragEvent) => {
@@ -46,7 +49,7 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
               '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
             }}
           >
-            <Box sx={{ aspectRatio: '4 / 3', bgcolor: 'action.hover', display: 'grid', placeItems: 'center', position: 'relative' }}>
+            <Box sx={{ aspectRatio: '4 / 3', display: 'grid', placeItems: 'center', position: 'relative', p: usesBg ? 1 : 0, ...(usesBg ? previewBgSx(bg) : { bgcolor: 'action.hover' }) }}>
               <MediaPreview url={a.url} filename={a.filename} contentType={a.content_type} variant="thumb" alt={a.title || a.filename || ''} />
               {kind === 'video' && (
                 <Box sx={{ position: 'absolute', bottom: 6, left: 6, px: 0.75, py: 0.25, borderRadius: 1, bgcolor: 'rgba(0,0,0,.6)', color: '#fff', fontSize: 10, fontWeight: 700 }}>▶ VIDEO</Box>

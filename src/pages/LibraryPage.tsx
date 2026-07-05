@@ -4,11 +4,12 @@ import {
   Alert, Box, Button, Chip, CircularProgress, FormControl, InputAdornment, InputLabel, LinearProgress, Menu,
   MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
-import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus, UploadCloud } from 'lucide-react';
+import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus, UploadCloud, Sun, Moon, Grid3x3 } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { ASSET_TYPES } from '../lib/types';
 import { api, type AssetFilters } from '../lib/api';
 import { useBrands } from '../lib/useBrands';
+import { usePreviewBg } from '../lib/previewBg';
 import { dtHasFiles, readAssetIds, readDropped, uploadDroppedTree } from '../lib/dnd';
 import { mediaKind, MEDIA_KINDS, MEDIA_META } from '../lib/media';
 import { AssetGrid } from '../components/AssetGrid';
@@ -23,6 +24,7 @@ export function LibraryPage() {
   const toast = useToast();
   const navigate = useNavigate();
   const { brands: brandList } = useBrands();
+  const [previewBg, setPreviewBg] = usePreviewBg();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -333,6 +335,14 @@ export function LibraryPage() {
           >
             <ToggleButton value="grid" aria-label="Grid view"><Tooltip title="Grid"><LayoutGrid size={16} /></Tooltip></ToggleButton>
             <ToggleButton value="table" aria-label="Table view"><Tooltip title="Table"><TableIcon size={16} /></Tooltip></ToggleButton>
+          </ToggleButtonGroup>
+          <ToggleButtonGroup
+            size="small" exclusive value={previewBg}
+            onChange={(_, v) => { if (v) setPreviewBg(v); }}
+          >
+            <ToggleButton value="light" aria-label="Light preview background"><Tooltip title="White background"><Sun size={16} /></Tooltip></ToggleButton>
+            <ToggleButton value="dark" aria-label="Dark preview background"><Tooltip title="Dark background"><Moon size={16} /></Tooltip></ToggleButton>
+            <ToggleButton value="checker" aria-label="Checkerboard preview background"><Tooltip title="Transparency checkerboard"><Grid3x3 size={16} /></Tooltip></ToggleButton>
           </ToggleButtonGroup>
         </Stack>
       </Paper>

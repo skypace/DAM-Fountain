@@ -4,6 +4,7 @@ import { FolderOpen, Trash2 } from 'lucide-react';
 import type { Collection } from '../lib/types';
 import { api } from '../lib/api';
 import { dtHasFiles, readAssetIds, readFolderId, readDropped, uploadDroppedTree } from '../lib/dnd';
+import { usePreviewBg, previewBgSx } from '../lib/previewBg';
 import { MediaPreview } from './MediaPreview';
 import { useToast } from './Toast';
 
@@ -21,6 +22,7 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged }: {
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState<number | null>(null);
+  const [bg] = usePreviewBg();
 
   const onDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('application/x-fountain-folder', c.id);
@@ -71,13 +73,13 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged }: {
         '&:hover': { borderColor: 'primary.main', boxShadow: '0 10px 24px rgba(15,23,42,.12)' },
       }}
     >
-      <Box sx={{ aspectRatio: '16 / 9', bgcolor: 'action.hover', display: 'grid', placeItems: 'center', overflow: 'hidden', pointerEvents: 'none' }}>
+      <Box sx={{ aspectRatio: '16 / 9', display: 'grid', placeItems: 'center', overflow: 'hidden', pointerEvents: 'none', p: c.cover ? 1 : 0, ...(c.cover ? previewBgSx(bg) : { bgcolor: 'action.hover' }) }}>
         {busy ? (
           <Stack alignItems="center" spacing={0.5}>
             <CircularProgress size={22} variant={pct === null ? 'indeterminate' : 'determinate'} value={pct ?? 0} />
             {pct !== null && <Typography variant="caption" color="text.secondary">{pct}%</Typography>}
           </Stack>
-        ) : c.cover ? <MediaPreview url={c.cover.url} filename={c.cover.filename} contentType={c.cover.content_type} variant="thumb" alt={c.name} />
+        ) : c.cover ? <MediaPreview url={c.cover.url} filename={c.cover.filename} contentType={c.cover.content_type} variant="thumb" alt={c.name} fit="contain" />
           : <FolderOpen size={28} opacity={0.4} />}
       </Box>
       <Box sx={{ p: 1.25 }}>

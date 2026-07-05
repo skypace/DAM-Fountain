@@ -8,6 +8,7 @@ import type { Asset, AssetVersion, Collection } from '../lib/types';
 import { ASSET_TYPES, STATUSES } from '../lib/types';
 import { useBrands } from '../lib/useBrands';
 import { api } from '../lib/api';
+import { usePreviewBg, previewBgSx } from '../lib/previewBg';
 import { MediaPreview } from './MediaPreview';
 import { useToast } from './Toast';
 
@@ -27,6 +28,7 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
   const [type, setType] = useState(asset.type);
   const [brand, setBrand] = useState(asset.brand);
   const { brands: brandList } = useBrands();
+  const [bg] = usePreviewBg();
   const [status, setStatus] = useState(asset.status);
   const [tags, setTags] = useState<string[]>(asset.tags.map((t) => t.name));
   const [collectionId, setCollectionId] = useState('');
@@ -104,7 +106,7 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
     <Dialog open onClose={onClose} maxWidth="md" fullWidth>
       <DialogContent>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-          <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, display: 'grid', placeItems: 'center', minHeight: 260, overflow: 'hidden', p: 1 }}>
+          <Box sx={{ borderRadius: 2, display: 'grid', placeItems: 'center', minHeight: 260, overflow: 'hidden', p: 1, ...previewBgSx(bg) }}>
             <MediaPreview url={asset.url} filename={asset.filename} contentType={asset.content_type} variant="full" alt={asset.title || ''} />
           </Box>
           <Stack spacing={1.5}>

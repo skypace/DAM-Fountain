@@ -1,8 +1,10 @@
 import JSZip from 'jszip';
 import { token } from './auth';
-import type { Asset, AssetVersion, Collection, Member, Share, Tag, AssetType, Brand } from './types';
+import type { Asset, AssetVersion, BrandGuidelines, Collection, GuidelineFile, Member, Share, Tag, AssetType, Brand } from './types';
 
 const FN = '/.netlify/functions';
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://gfsdpwiqzshhexkofiif.supabase.co';
+export const brandAssetUrl = (path: string) => `${SUPABASE_URL}/storage/v1/object/public/brand-assets/${path.split('/').map(encodeURIComponent).join('/')}`;
 
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
@@ -92,6 +94,17 @@ export const api = {
   createShare: (body: { kind: 'asset' | 'collection'; assetId?: string; collectionId?: string; title?: string; allowDownload?: boolean; password?: string; expiresInDays?: number }) =>
     call<{ share: Share }>('/shares', { method: 'POST', body: JSON.stringify(body) }).then((r) => r.share),
   revokeShare: (id: string) => call<{ ok: boolean }>(`/shares?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  getGuidelines: () => call<{ doc: BrandGuidelines }>('/guidelines').then((r) => r.doc),
+  saveGuidelines: (doc: BrandGuidelines) => call<{ doc: BrandGuidelines }>('/guidelines', { method: 'PUT', body: JSON.stringify({ doc }) }).then((r) => r.doc),
+  uploadGuidelineFile: async (file: File): Promise<GuidelineFile> => {
+    const sign = await call<{ uploadUrl: string; path: string; contentType: string }>('/assets', {
+      method: 'POST', body: JSON.stringify({ action: 'sign', filename: file.name, contentType: file.type }),
+    });
+    const put = await fetch(sign.uploadUrl, { method: 'PUT', headers: { 'content-type': file.type || sign.contentType || 'application/octet-stream', 'x-upsert': 'true' }, body: file });
+    if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+    return { name: file.name, path: sign.path, contentType: file.type, url: brandAssetUrl(sign.path) };
+  },
 
   listMembers: () => call<{ members: Member[] }>('/members').then((r) => r.members),
   addMember: (email: string, role: string) => call<{ status: string }>('/members', { method: 'POST', body: JSON.stringify({ email, role }) }),

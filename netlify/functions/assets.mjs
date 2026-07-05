@@ -49,9 +49,17 @@ function shape(row) {
     collection_assets: undefined,
     url: publicUrl(row.storage_path),
     thumbnailUrl: isImg(row.storage_path) ? publicUrl(row.storage_path) : null,
-    tags: (row.asset_tags || []).map((t) => t.tag).filter(Boolean),
-    collections: (row.collection_assets || []).map((c) => c.collection).filter(Boolean),
+    tags: asArray(row.asset_tags).map((t) => t.tag).filter(Boolean),
+    collections: asArray(row.collection_assets).map((c) => c.collection).filter(Boolean),
   };
+}
+
+// PostgREST returns an embedded relationship as an object (not an array) when it
+// infers a to-one cardinality (e.g. after the unique(asset_id) constraint on
+// collection_assets). Normalize to an array either way.
+function asArray(v) {
+  if (Array.isArray(v)) return v;
+  return v ? [v] : [];
 }
 
 // Ensure tag rows exist for the given names; return their ids.

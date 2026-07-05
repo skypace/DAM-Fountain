@@ -3,6 +3,8 @@ import { db, q, publicUrl } from './_shared/supabase.mjs';
 
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || `c-${Date.now()}`;
 const isImg = (p) => /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(p || '');
+// PostgREST may return a to-one embed as an object; normalize to an array.
+const asArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 function shapeAsset(row) {
   return {
     ...row,
@@ -10,8 +12,8 @@ function shapeAsset(row) {
     collection_assets: undefined,
     url: publicUrl(row.storage_path),
     thumbnailUrl: isImg(row.storage_path) ? publicUrl(row.storage_path) : null,
-    tags: (row.asset_tags || []).map((t) => t.tag).filter(Boolean),
-    collections: (row.collection_assets || []).map((c) => c.collection).filter(Boolean),
+    tags: asArray(row.asset_tags).map((t) => t.tag).filter(Boolean),
+    collections: asArray(row.collection_assets).map((c) => c.collection).filter(Boolean),
   };
 }
 

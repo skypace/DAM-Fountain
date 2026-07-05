@@ -61,6 +61,14 @@ export interface Share {
 
 export interface Member { user_id: string; email: string | null; role: Role; created_at: string }
 
+export interface GuidelineFile { name: string; path?: string; contentType?: string; url?: string }
+export interface BrandGuidelines {
+  colors: { name: string; hex: string }[];
+  fonts: { name: string; note?: string }[];
+  sections: { title: string; body: string }[];
+  files: GuidelineFile[];
+}
+
 export interface AssetVersion {
   id: string;
   version: number;

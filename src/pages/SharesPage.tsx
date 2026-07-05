@@ -6,6 +6,7 @@ import {
 import { Copy, ExternalLink, Ban } from 'lucide-react';
 import type { Share } from '../lib/types';
 import { api } from '../lib/api';
+import { PageHeader } from '../components/PageHeader';
 import { useToast } from '../components/Toast';
 
 export function SharesPage() {
@@ -29,7 +30,7 @@ export function SharesPage() {
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h6">Share Links</Typography>
+      <PageHeader title="Share Links" subtitle="Public links to assets or collections — with optional password, expiry, and view tracking" />
       {error && <Alert severity="warning" action={<Button size="small" onClick={load}>Retry</Button>}>{error}</Alert>}
       {loading ? <Box sx={{ display: 'grid', placeItems: 'center', py: 6 }}><CircularProgress /></Box> : (
         !shares.length ? <Typography color="text.secondary">No share links yet. Create one from an asset or a collection.</Typography> : (

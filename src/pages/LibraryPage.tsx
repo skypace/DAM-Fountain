@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Chip, CircularProgress, FormControl, InputLabel, MenuItem,
-  Select, Stack, TextField, Typography,
+  Alert, Button, CircularProgress, FormControl, InputAdornment, InputLabel, Menu,
+  MenuItem, Paper, Select, Stack, TextField,
 } from '@mui/material';
-import { Upload, Globe, Download } from 'lucide-react';
+import { Upload, Globe, Download, Search, Images, MoreVertical, X } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { ASSET_TYPES, BRANDS } from '../lib/types';
 import { api, fileToBase64, type AssetFilters } from '../lib/api';
 import { AssetGrid } from '../components/AssetGrid';
 import { AssetDialog } from '../components/AssetDialog';
+import { PageHeader } from '../components/PageHeader';
+import { EmptyState, GridSkeleton } from '../components/EmptyState';
+import { BulkActionBar } from '../components/BulkActionBar';
 import { useToast } from '../components/Toast';
 
 export function LibraryPage() {
@@ -28,6 +31,12 @@ export function LibraryPage() {
   const [brand, setBrand] = useState('');
   const [tag, setTag] = useState('');
   const [uploadType, setUploadType] = useState('other');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+
+  const toggleSelect = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const clearSelection = () => { setSelected(new Set()); setSelectMode(false); };
 
   const filters = useMemo<AssetFilters>(() => ({ q: q || undefined, type: type || undefined, brand: brand || undefined, tag: tag || undefined }), [q, type, brand, tag]);
 
@@ -67,46 +76,97 @@ export function LibraryPage() {
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 
+  const hasFilters = !!(q || type || brand || tag);
+  const selectedIds = [...selected];
+
   return (
     <Stack spacing={2}>
-      <Stack direction="row" alignItems="center" flexWrap="wrap" useFlexGap spacing={1}>
-        <Typography variant="h6">Library</Typography>
-        <Chip size="small" variant="outlined" label={`${assets.length} asset${assets.length === 1 ? '' : 's'}`} />
-        <Box sx={{ flex: 1 }} />
-        <FormControl size="small" sx={{ minWidth: 130 }}>
-          <InputLabel>Upload as</InputLabel>
-          <Select label="Upload as" value={uploadType} onChange={(e) => setUploadType(e.target.value)}>
-            {ASSET_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-          </Select>
-        </FormControl>
-        <Button component="label" variant="contained" startIcon={busy ? <CircularProgress size={16} /> : <Upload size={16} />} disabled={busy}>
-          Upload
-          <input hidden type="file" multiple accept="image/*,application/pdf" onChange={(e) => { upload(e.target.files); e.currentTarget.value = ''; }} />
-        </Button>
-        <Button variant="outlined" startIcon={<Globe size={16} />} onClick={() => setShowImport((v) => !v)}>Import URL</Button>
-        <Button variant="text" startIcon={<Download size={16} />} onClick={migrate} disabled={busy} title="Register files already in the brand-assets bucket">Import bucket</Button>
-      </Stack>
+      <PageHeader
+        title="Library"
+        subtitle={`${assets.length} asset${assets.length === 1 ? '' : 's'}${hasFilters ? ' · filtered' : ''} · Alameda Soda + Brix`}
+        actions={(
+          <>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Upload as</InputLabel>
+              <Select label="Upload as" value={uploadType} onChange={(e) => setUploadType(e.target.value)}>
+                {ASSET_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <Button component="label" variant="contained" startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Upload size={16} />} disabled={busy}>
+              Upload
+              <input hidden type="file" multiple accept="image/*,application/pdf" onChange={(e) => { upload(e.target.files); e.currentTarget.value = ''; }} />
+            </Button>
+            <Button variant="outlined" startIcon={<Globe size={16} />} onClick={() => setShowImport((v) => !v)}>Import URL</Button>
+            <Button variant={selectMode ? 'contained' : 'outlined'} color="secondary" onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}>
+              {selectMode ? 'Done' : 'Select'}
+            </Button>
+            <Button variant="text" sx={{ minWidth: 0, px: 1 }} onClick={(e) => setMenuAnchor(e.currentTarget)} aria-label="More actions"><MoreVertical size={18} /></Button>
+            <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
+              <MenuItem disabled={busy} onClick={() => { setMenuAnchor(null); migrate(); }}>
+                <Download size={15} style={{ marginRight: 8 }} /> Register existing bucket files
+              </MenuItem>
+            </Menu>
+          </>
+        )}
+      />
 
       {showImport && (
-        <Stack direction="row" spacing={1} alignItems="flex-start">
-          <TextField fullWidth size="small" multiline minRows={2} placeholder="Paste image/PDF URLs (one per line) — e.g. assets exported from Brandox" value={importText} onChange={(e) => setImportText(e.target.value)} />
-          <Button variant="contained" onClick={runImport} disabled={busy}>Import</Button>
-        </Stack>
+        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+          <Stack direction="row" spacing={1} alignItems="flex-start">
+            <TextField fullWidth size="small" multiline minRows={2} placeholder="Paste image/PDF URLs (one per line) — e.g. assets exported from Brandox" value={importText} onChange={(e) => setImportText(e.target.value)} />
+            <Stack spacing={0.5}>
+              <Button variant="contained" onClick={runImport} disabled={busy}>Import</Button>
+              <Button size="small" color="inherit" startIcon={<X size={14} />} onClick={() => setShowImport(false)}>Close</Button>
+            </Stack>
+          </Stack>
+        </Paper>
       )}
 
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <TextField size="small" label="Search" value={q} onChange={(e) => setQ(e.target.value)} sx={{ minWidth: 200, flex: 1 }} />
-        <FormControl size="small" sx={{ minWidth: 130 }}><InputLabel>Type</InputLabel>
-          <Select label="Type" value={type} onChange={(e) => setType(e.target.value)}><MenuItem value="">All types</MenuItem>{ASSET_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
-        <FormControl size="small" sx={{ minWidth: 130 }}><InputLabel>Brand</InputLabel>
-          <Select label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)}><MenuItem value="">All brands</MenuItem>{BRANDS.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}</Select></FormControl>
-        <FormControl size="small" sx={{ minWidth: 130 }}><InputLabel>Tag</InputLabel>
-          <Select label="Tag" value={tag} onChange={(e) => setTag(e.target.value)}><MenuItem value="">All tags</MenuItem>{tags.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.count})</MenuItem>)}</Select></FormControl>
-      </Stack>
+      <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 3 }}>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+          <TextField
+            size="small" placeholder="Search assets…" value={q} onChange={(e) => setQ(e.target.value)}
+            sx={{ minWidth: 220, flex: 1 }}
+            InputProps={{ startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> }}
+          />
+          <FormControl size="small" sx={{ minWidth: 130 }}><InputLabel>Type</InputLabel>
+            <Select label="Type" value={type} onChange={(e) => setType(e.target.value)}><MenuItem value="">All types</MenuItem>{ASSET_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
+          <FormControl size="small" sx={{ minWidth: 130 }}><InputLabel>Brand</InputLabel>
+            <Select label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)}><MenuItem value="">All brands</MenuItem>{BRANDS.map((b) => <MenuItem key={b} value={b} sx={{ textTransform: 'capitalize' }}>{b}</MenuItem>)}</Select></FormControl>
+          <FormControl size="small" sx={{ minWidth: 140 }}><InputLabel>Tag</InputLabel>
+            <Select label="Tag" value={tag} onChange={(e) => setTag(e.target.value)}><MenuItem value="">All tags</MenuItem>{tags.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.count})</MenuItem>)}</Select></FormControl>
+          {hasFilters && <Button size="small" color="inherit" startIcon={<X size={14} />} onClick={() => { setQ(''); setType(''); setBrand(''); setTag(''); }}>Clear</Button>}
+        </Stack>
+      </Paper>
 
       {error && <Alert severity="warning" action={<Button size="small" onClick={load}>Retry</Button>}>{error}</Alert>}
-      {loading ? <Box sx={{ display: 'grid', placeItems: 'center', py: 6 }}><CircularProgress /></Box>
-        : <AssetGrid assets={assets} onOpen={setOpen} />}
+
+      {loading ? <GridSkeleton />
+        : !assets.length ? (
+          <EmptyState
+            icon={<Images size={28} />}
+            title={hasFilters ? 'No assets match your filters' : 'Your brand library is empty'}
+            description={hasFilters ? 'Try clearing a filter or searching for something else.' : 'Upload logos, can art, equipment shots, hero images, or sell sheets — or register files already in the bucket from the ⋮ menu.'}
+            action={!hasFilters ? (
+              <Button component="label" variant="contained" startIcon={<Upload size={16} />}>
+                Upload assets
+                <input hidden type="file" multiple accept="image/*,application/pdf" onChange={(e) => { upload(e.target.files); e.currentTarget.value = ''; }} />
+              </Button>
+            ) : <Button variant="outlined" onClick={() => { setQ(''); setType(''); setBrand(''); setTag(''); }}>Clear filters</Button>}
+          />
+        ) : (
+          <AssetGrid assets={assets} onOpen={setOpen} selectable={selectMode} selected={selected} onToggleSelect={toggleSelect} />
+        )}
+
+      {selectMode && selectedIds.length > 0 && (
+        <BulkActionBar
+          ids={selectedIds}
+          assets={assets}
+          collections={collections}
+          onDone={() => { clearSelection(); load(); }}
+          onClear={clearSelection}
+        />
+      )}
 
       {open && (
         <AssetDialog

@@ -37,6 +37,8 @@ export const api = {
   updateAsset: (body: Omit<Partial<Asset>, 'tags'> & { id: string; tags?: string[] }) =>
     call<{ asset: Asset }>('/assets', { method: 'PATCH', body: JSON.stringify(body) }).then((r) => r.asset),
   deleteAsset: (id: string) => call<{ ok: boolean }>(`/assets?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  bulkAssets: (body: { ids: string[]; status?: string; brand?: string; type?: string; addTags?: string[]; collectionId?: string; delete?: boolean }) =>
+    call<{ ok: boolean; count: number }>('/assets', { method: 'POST', body: JSON.stringify({ action: 'bulk', ...body }) }),
 
   listTags: () => call<{ tags: Tag[] }>('/tags').then((r) => r.tags),
 

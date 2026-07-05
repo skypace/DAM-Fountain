@@ -92,6 +92,7 @@ async function handleUpload(event, auth) {
   const payload = JSON.parse(event.body || '{}');
   if (payload.action === 'import') return handleImport(payload, auth);
   if (payload.action === 'migrate') return handleMigrate(auth);
+  if (payload.action === 'bulk') return handleBulk(payload);
 
   const { filename, dataBase64, type, brand, title, description, tags } = payload;
   if (!dataBase64) return json({ error: 'dataBase64 is required' }, 400);
@@ -181,6 +182,43 @@ async function handleMigrate(auth) {
     inserted.push(asset);
   }
   return json({ migrated: inserted.length, assets: inserted });
+}
+
+// Apply one or more changes to many assets at once: set status/brand/type, add
+// tags, add to a collection, or delete. Powers the bulk-action bar.
+async function handleBulk(payload) {
+  const ids = [...new Set((payload.ids || []).map(String).filter(Boolean))];
+  if (!ids.length) return json({ error: 'ids required' }, 400);
+  const inList = `(${ids.map(q).join(',')})`;
+
+  if (payload.delete) {
+    const rows = await db('GET', `assets?id=in.${inList}&select=storage_path`);
+    await Promise.all(rows.map((r) => storageDelete(r.storage_path).catch(() => {})));
+    await db('DELETE', `assets?id=in.${inList}`);
+    return json({ ok: true, count: ids.length });
+  }
+
+  const patch = {};
+  if (payload.status) patch.status = payload.status;
+  if (payload.brand && BRANDS.includes(payload.brand)) patch.brand = payload.brand;
+  if (payload.type && TYPES.includes(payload.type)) patch.type = payload.type;
+  if (Object.keys(patch).length) {
+    patch.updated_at = new Date().toISOString();
+    await db('PATCH', `assets?id=in.${inList}`, { body: patch, prefer: 'return=minimal' });
+  }
+
+  if (Array.isArray(payload.addTags) && payload.addTags.length) {
+    const tagIds = await resolveTagIds(payload.addTags);
+    const rows = [];
+    for (const asset_id of ids) for (const tag_id of tagIds) rows.push({ asset_id, tag_id });
+    if (rows.length) await db('POST', 'asset_tags', { body: rows, prefer: 'resolution=merge-duplicates,return=minimal' });
+  }
+
+  if (payload.collectionId) {
+    await db('POST', 'collection_assets', { body: ids.map((asset_id) => ({ collection_id: payload.collectionId, asset_id })), prefer: 'resolution=merge-duplicates,return=minimal' });
+  }
+
+  return json({ ok: true, count: ids.length });
 }
 
 async function handlePatch(event) {

@@ -4,6 +4,7 @@ import { Box, Button, CircularProgress, IconButton, Paper, Stack, TextField, Typ
 import { Plus, Trash2, FolderOpen } from 'lucide-react';
 import type { Collection } from '../lib/types';
 import { api } from '../lib/api';
+import { PageHeader } from '../components/PageHeader';
 import { useToast } from '../components/Toast';
 
 export function CollectionsPage() {
@@ -33,11 +34,17 @@ export function CollectionsPage() {
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h6">Collections</Typography>
-      <Stack direction="row" spacing={1}>
-        <TextField size="small" label="New collection name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') create(); }} sx={{ maxWidth: 320 }} />
-        <Button variant="contained" startIcon={<Plus size={16} />} onClick={create} disabled={busy}>Create</Button>
-      </Stack>
+      <PageHeader
+        title="Collections"
+        subtitle="Curated sets of brand assets — share a whole collection with one link"
+        actions={(
+          <Stack direction="row" spacing={1}>
+            <TextField size="small" label="New collection name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') create(); }} sx={{ maxWidth: 260 }} />
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={create} disabled={busy}>Create</Button>
+          </Stack>
+        )}
+      />
+      {null}
       {loading ? <Box sx={{ display: 'grid', placeItems: 'center', py: 6 }}><CircularProgress /></Box> : (
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1.5 }}>
           {collections.map((c) => (

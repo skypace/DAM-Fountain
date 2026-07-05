@@ -6,6 +6,7 @@ import {
 import { UserPlus, Trash2 } from 'lucide-react';
 import type { Member, Role } from '../lib/types';
 import { api } from '../lib/api';
+import { PageHeader } from '../components/PageHeader';
 import { useToast } from '../components/Toast';
 
 const ROLES: Role[] = ['viewer', 'contributor', 'admin'];
@@ -42,10 +43,10 @@ export function MembersPage() {
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h6">Users & Roles</Typography>
-      <Typography variant="body2" color="text.secondary">
-        Superadmins always have full access. Add teammates here — <b>viewer</b> can browse &amp; download, <b>contributor</b> can upload/tag/organize/share, <b>admin</b> can also manage users.
-      </Typography>
+      <PageHeader
+        title="Users & Roles"
+        subtitle={<>Superadmins always have full access. <b>viewer</b> browses &amp; downloads · <b>contributor</b> uploads/tags/organizes/shares · <b>admin</b> also manages users.</>}
+      />
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
         <TextField size="small" label="Email" value={email} onChange={(e) => setEmail(e.target.value)} sx={{ minWidth: 240 }} />
         <FormControl size="small" sx={{ minWidth: 150 }}><InputLabel>Role</InputLabel>

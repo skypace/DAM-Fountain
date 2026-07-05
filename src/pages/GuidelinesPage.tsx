@@ -53,8 +53,8 @@ export function GuidelinesPage() {
   }
 
   // Colors
-  const addColor = () => patch({ colors: [...doc.colors, { name: 'New color', hex: '#1F4E79' }] });
-  const setColor = (i: number, k: 'name' | 'hex', v: string) => patch({ colors: doc.colors.map((c, j) => (j === i ? { ...c, [k]: v } : c)) });
+  const addColor = () => patch({ colors: [...doc.colors, { name: 'New color', hex: '#1F4E79', pantone: '', cmyk: '' }] });
+  const setColor = (i: number, k: 'name' | 'hex' | 'pantone' | 'cmyk', v: string) => patch({ colors: doc.colors.map((c, j) => (j === i ? { ...c, [k]: v } : c)) });
   const delColor = (i: number) => patch({ colors: doc.colors.filter((_, j) => j !== i) });
   function importHexFromText(text: string) {
     const found = [...new Set((text.match(HEX_RE) || []).map((h) => h.toLowerCase()))];
@@ -147,11 +147,13 @@ export function GuidelinesPage() {
                   <Box sx={{ p: 1 }}>
                     <TextField variant="standard" fullWidth value={c.name} onChange={(e) => setColor(i, 'name', e.target.value)} InputProps={{ disableUnderline: true, sx: { fontWeight: 700, fontSize: 14 } }} />
                     <Stack direction="row" alignItems="center" spacing={0.5}>
-                      <TextField variant="standard" value={c.hex} onChange={(e) => setColor(i, 'hex', e.target.value)} InputProps={{ disableUnderline: true, sx: { fontSize: 12, color: 'text.secondary' } }} />
+                      <TextField variant="standard" placeholder="#hex" value={c.hex} onChange={(e) => setColor(i, 'hex', e.target.value)} InputProps={{ disableUnderline: true, sx: { fontSize: 12, color: 'text.secondary' } }} />
                       <Box sx={{ flex: 1 }} />
                       <Tooltip title="Copy hex"><IconButton size="small" onClick={() => navigator.clipboard.writeText(c.hex).then(() => toast(`Copied ${c.hex}`))}><Copy size={13} /></IconButton></Tooltip>
                       <IconButton size="small" onClick={() => delColor(i)}><Trash2 size={13} /></IconButton>
                     </Stack>
+                    <TextField variant="standard" fullWidth placeholder="Pantone (e.g. PMS 2945 C)" value={c.pantone || ''} onChange={(e) => setColor(i, 'pantone', e.target.value)} InputProps={{ disableUnderline: true, sx: { fontSize: 11.5, color: 'text.secondary' } }} sx={{ mt: 0.25 }} />
+                    <TextField variant="standard" fullWidth placeholder="CMYK (e.g. 100/60/0/30)" value={c.cmyk || ''} onChange={(e) => setColor(i, 'cmyk', e.target.value)} InputProps={{ disableUnderline: true, sx: { fontSize: 11.5, color: 'text.secondary' } }} />
                   </Box>
                 </Paper>
               ))}

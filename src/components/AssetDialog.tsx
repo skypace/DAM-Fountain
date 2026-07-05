@@ -5,8 +5,9 @@ import {
 } from '@mui/material';
 import { Copy, Download, Trash2, Share2, Image as ImageIcon, Sparkles, RefreshCw, History, RotateCcw } from 'lucide-react';
 import type { Asset, AssetVersion, Collection } from '../lib/types';
-import { ASSET_TYPES, STATUSES } from '../lib/types';
+import { STATUSES } from '../lib/types';
 import { useBrands } from '../lib/useBrands';
+import { useTypes } from '../lib/useTypes';
 import { api } from '../lib/api';
 import { usePreviewBg, previewBgSx } from '../lib/previewBg';
 import { MediaPreview } from './MediaPreview';
@@ -28,6 +29,7 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
   const [type, setType] = useState(asset.type);
   const [brand, setBrand] = useState(asset.brand);
   const { brands: brandList } = useBrands();
+  const { types: typeList, addType } = useTypes();
   const [bg] = usePreviewBg();
   const [status, setStatus] = useState(asset.status);
   const [tags, setTags] = useState<string[]>(asset.tags.map((t) => t.name));
@@ -114,8 +116,10 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
             <TextField size="small" label="Description" value={description} onChange={(e) => setDescription(e.target.value)} multiline minRows={2} />
             <Stack direction="row" spacing={1}>
               <FormControl size="small" fullWidth><InputLabel>Type</InputLabel>
-                <Select label="Type" value={type} onChange={(e) => setType(e.target.value as Asset['type'])}>
-                  {ASSET_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                <Select label="Type" value={type} onChange={async (e) => { if (e.target.value === '__add__') { const s = await addType(); if (s) setType(s as Asset['type']); } else setType(e.target.value as Asset['type']); }}>
+                  {typeList.map((t) => <MenuItem key={t.slug} value={t.slug}>{t.label}</MenuItem>)}
+                  {!typeList.some((t) => t.slug === type) && type && <MenuItem value={type}>{type}</MenuItem>}
+                  <MenuItem value="__add__" sx={{ fontStyle: 'italic' }}>＋ Add type…</MenuItem>
                 </Select></FormControl>
               <FormControl size="small" fullWidth><InputLabel>Brand</InputLabel>
                 <Select label="Brand" value={brand} onChange={(e) => setBrand(e.target.value as Asset['brand'])}>

@@ -29,12 +29,30 @@ async function coverMapFor(rows) {
   }
   return map;
 }
-const shapeCollection = (c, covers, extra = {}) => {
-  const cover = c.cover_asset_id ? covers.get(c.cover_asset_id) || null : null;
+// For collections with no explicit cover, auto-pick the first image asset in
+// the collection so every folder with a picture shows a thumbnail.
+async function autoCoverMapFor(rows) {
+  const need = rows.filter((c) => !c.cover_asset_id).map((c) => c.id);
+  const map = new Map();
+  if (!need.length) return map;
+  const links = await db('GET', `collection_assets?collection_id=in.(${need.map(q).join(',')})&select=collection_id,sort_order,asset:assets(storage_path,filename,content_type)&order=sort_order.asc`);
+  for (const l of links) {
+    const a = l.asset;
+    if (!a || map.has(l.collection_id)) continue;
+    if (isImg(a.storage_path) || /^image\//i.test(a.content_type || '')) {
+      map.set(l.collection_id, { url: publicUrl(a.storage_path), filename: a.filename, content_type: a.content_type, storage_path: a.storage_path });
+    }
+  }
+  return map;
+}
+const shapeCollection = (c, covers, autoCovers, extra = {}) => {
+  const explicit = c.cover_asset_id ? covers.get(c.cover_asset_id) || null : null;
+  const cover = explicit || autoCovers?.get(c.id) || null;
   return {
     ...c,
     count: c.collection_assets?.[0]?.count ?? 0,
     cover,
+    auto_cover: !explicit && !!cover, // true when the cover was auto-picked
     // Back-compat: coverUrl is the image-only URL (null for non-images).
     coverUrl: cover && isImg(cover.storage_path) ? cover.url : null,
     collection_assets: undefined,
@@ -44,10 +62,10 @@ const shapeCollection = (c, covers, extra = {}) => {
 
 async function list() {
   const rows = await db('GET', 'collections?select=*,collection_assets(count)&order=created_at.desc');
-  const covers = await coverMapFor(rows);
+  const [covers, autoCovers] = await Promise.all([coverMapFor(rows), autoCoverMapFor(rows)]);
   const subfolderCount = new Map();
   for (const c of rows) if (c.parent_id) subfolderCount.set(c.parent_id, (subfolderCount.get(c.parent_id) || 0) + 1);
-  return json({ collections: rows.map((c) => shapeCollection(c, covers, { subfolderCount: subfolderCount.get(c.id) || 0 })) });
+  return json({ collections: rows.map((c) => shapeCollection(c, covers, autoCovers, { subfolderCount: subfolderCount.get(c.id) || 0 })) });
 }
 
 async function detail(id) {
@@ -57,8 +75,8 @@ async function detail(id) {
   const assets = links.map((l) => shapeAsset(l.asset)).filter(Boolean);
   // Sub-folders of this collection, each with a direct asset count + cover.
   const childRows = await db('GET', `collections?parent_id=eq.${q(id)}&select=*,collection_assets(count)&order=name.asc`);
-  const covers = await coverMapFor(childRows);
-  const children = childRows.map((c) => shapeCollection(c, covers));
+  const [covers, autoCovers] = await Promise.all([coverMapFor(childRows), autoCoverMapFor(childRows)]);
+  const children = childRows.map((c) => shapeCollection(c, covers, autoCovers));
   // Parent breadcrumb (name only) if this is itself a sub-folder.
   let parent = null;
   if (rows[0].parent_id) {

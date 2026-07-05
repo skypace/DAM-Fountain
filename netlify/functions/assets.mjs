@@ -1,7 +1,10 @@
 import { preflight, json, requireRole } from './_shared/http.mjs';
 import { db, q, publicUrl, storagePut, storageDelete, storageList, BUCKET, SUPABASE_URL, SERVICE_KEY } from './_shared/supabase.mjs';
 
-const TYPES = ['logo', 'can', 'equipment', 'hero', 'testimonial', 'sell-sheet', 'other'];
+// Types are dynamic (dam.asset_types) so new types can be added. Accept any
+// slug-shaped value; an empty/invalid value falls back to classify().
+const isType = (t) => typeof t === 'string' && /^[a-z0-9-]{1,40}$/.test(t);
+const TYPES = { includes: isType };
 // Brands are dynamic (dam.brands) so sister brands can be added. Accept any
 // slug-shaped value; the UI populates the picker from the registry.
 const isBrand = (b) => typeof b === 'string' && /^[a-z0-9-]{1,48}$/.test(b);

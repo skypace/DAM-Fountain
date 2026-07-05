@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert, Box, Button, Chip, CircularProgress, FormControl, InputAdornment, InputLabel, LinearProgress, Menu,
   MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
 import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus, UploadCloud, Sun, Moon, Grid3x3 } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
-import { ASSET_TYPES } from '../lib/types';
 import { api, type AssetFilters } from '../lib/api';
 import { useBrands } from '../lib/useBrands';
+import { useTypes } from '../lib/useTypes';
+import { useBrandScope } from '../lib/brandScope';
 import { usePreviewBg } from '../lib/previewBg';
 import { dtHasFiles, readAssetIds, readDropped, uploadDroppedTree } from '../lib/dnd';
 import { mediaKind, MEDIA_KINDS, MEDIA_META } from '../lib/media';
@@ -24,7 +25,10 @@ export function LibraryPage() {
   const toast = useToast();
   const navigate = useNavigate();
   const { brands: brandList } = useBrands();
+  const { types: typeList, addType } = useTypes();
+  const [brandScope] = useBrandScope();
   const [previewBg, setPreviewBg] = usePreviewBg();
+  const [searchParams] = useSearchParams();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -60,7 +64,18 @@ export function LibraryPage() {
     return new Set([...[...prev].filter((id) => !itemIds.has(id)), ...ids]);
   });
 
-  const filters = useMemo<AssetFilters>(() => ({ q: q || undefined, type: type || undefined, brand: brand || undefined, tag: tag || undefined, collection: collection || undefined }), [q, type, brand, tag, collection]);
+  // A brand chosen in the sidebar scopes the whole library; the toolbar filter
+  // only applies when scope is "all".
+  const effectiveBrand = brandScope !== 'all' ? brandScope : brand;
+  const uploadBrand = brandScope !== 'all' ? (brandScope as Asset['brand']) : undefined;
+  const filters = useMemo<AssetFilters>(() => ({ q: q || undefined, type: type || undefined, brand: effectiveBrand || undefined, tag: tag || undefined, collection: collection || undefined }), [q, type, effectiveBrand, tag, collection]);
+
+  // Seed the search box from a ?q= link (sidebar search navigates here).
+  useEffect(() => {
+    const urlq = searchParams.get('q');
+    if (urlq !== null && urlq !== q) setQ(urlq);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function load() {
     setLoading(true); setError(null);
@@ -70,7 +85,7 @@ export function LibraryPage() {
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { const id = setTimeout(load, 250); return () => clearTimeout(id); }, [q, type, brand, tag, collection]);
+  useEffect(() => { const id = setTimeout(load, 250); return () => clearTimeout(id); }, [q, type, effectiveBrand, tag, collection]);
 
   async function upload(files: FileList | null) {
     if (!files?.length) return;
@@ -80,7 +95,7 @@ export function LibraryPage() {
     setProgress({ done: 0, total: list.length, pct: 0 });
     try {
       for (let i = 0; i < list.length; i++) {
-        await api.uploadFile(list[i], { type: uploadType as Asset['type'], onProgress: (p) => setProgress({ done: i, total: list.length, pct: p }) });
+        await api.uploadFile(list[i], { type: uploadType as Asset['type'], brand: uploadBrand, onProgress: (p) => setProgress({ done: i, total: list.length, pct: p }) });
         ok++;
       }
       toast(`Uploaded ${ok} asset${ok === 1 ? '' : 's'}.`); await load();
@@ -109,7 +124,7 @@ export function LibraryPage() {
         let col = cols.find((c) => c.name.toLowerCase() === name.toLowerCase());
         if (!col) { col = await api.createCollection(name); cols.push(col); }
         const ids: string[] = [];
-        for (const f of groupFiles) { const a = await api.uploadFile(f, { type: uploadType as Asset['type'], onProgress: (p) => setProgress({ done: fileCount, total, pct: p }) }); ids.push(a.id); fileCount++; }
+        for (const f of groupFiles) { const a = await api.uploadFile(f, { type: uploadType as Asset['type'], brand: uploadBrand, onProgress: (p) => setProgress({ done: fileCount, total, pct: p }) }); ids.push(a.id); fileCount++; }
         if (ids.length) await api.addToCollection(col.id, ids);
       }
       await load();
@@ -125,7 +140,7 @@ export function LibraryPage() {
       const dropped = await readDropped(e.dataTransfer);
       if (dropped.length) {
         setProgress({ done: 0, total: dropped.length, pct: 0 });
-        const r = await uploadDroppedTree(dropped, { parentId: collection || null, type: uploadType as Asset['type'], onProgress: (done, total, pct) => setProgress({ done, total, pct }) });
+        const r = await uploadDroppedTree(dropped, { parentId: collection || null, type: uploadType as Asset['type'], brand: uploadBrand, onProgress: (done, total, pct) => setProgress({ done, total, pct }) });
         await load(); toast(`Uploaded ${r.files} file${r.files === 1 ? '' : 's'}${r.collections ? ` · ${r.collections} collection${r.collections === 1 ? '' : 's'}` : ''}.`);
       }
     } catch (err) { toast(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); setProgress(null); }
@@ -223,8 +238,9 @@ export function LibraryPage() {
           <>
             <FormControl size="small" sx={{ minWidth: 120 }}>
               <InputLabel>Upload as</InputLabel>
-              <Select label="Upload as" value={uploadType} onChange={(e) => setUploadType(e.target.value)}>
-                {ASSET_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              <Select label="Upload as" value={uploadType} onChange={async (e) => { if (e.target.value === '__add__') { const s = await addType(); if (s) setUploadType(s); } else setUploadType(e.target.value); }}>
+                {typeList.map((t) => <MenuItem key={t.slug} value={t.slug}>{t.label}</MenuItem>)}
+                <MenuItem value="__add__" sx={{ fontStyle: 'italic' }}>＋ Add type…</MenuItem>
               </Select>
             </FormControl>
             <Button component="label" variant="contained" startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Upload size={16} />} disabled={busy}>
@@ -321,7 +337,7 @@ export function LibraryPage() {
             InputProps={{ startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> }}
           />
           <FormControl size="small" sx={{ minWidth: 130 }}><InputLabel>Type</InputLabel>
-            <Select label="Type" value={type} onChange={(e) => setType(e.target.value)}><MenuItem value="">All types</MenuItem>{ASSET_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
+            <Select label="Type" value={type} onChange={(e) => setType(e.target.value)}><MenuItem value="">All types</MenuItem>{typeList.map((t) => <MenuItem key={t.slug} value={t.slug}>{t.label}</MenuItem>)}</Select></FormControl>
           <FormControl size="small" sx={{ minWidth: 130 }}><InputLabel>Brand</InputLabel>
             <Select label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)}><MenuItem value="">All brands</MenuItem>{brandList.map((b) => <MenuItem key={b.slug} value={b.slug}>{b.label}</MenuItem>)}</Select></FormControl>
           <FormControl size="small" sx={{ minWidth: 140 }}><InputLabel>Tag</InputLabel>

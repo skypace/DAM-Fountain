@@ -34,7 +34,7 @@ export async function handler(event) {
       const b = BRANDS.includes((body.brand || '').toLowerCase()) ? body.brand.toLowerCase() : brand;
       const doc = body.doc || {};
       const clean = {
-        colors: Array.isArray(doc.colors) ? doc.colors.slice(0, 100) : [],
+        colors: Array.isArray(doc.colors) ? doc.colors.map((c) => ({ name: c.name, hex: c.hex, pantone: c.pantone, cmyk: c.cmyk })).slice(0, 100) : [],
         fonts: Array.isArray(doc.fonts) ? doc.fonts.map((f) => ({ name: f.name, note: f.note, path: f.path, format: f.format })).slice(0, 50) : [],
         sections: Array.isArray(doc.sections) ? doc.sections.slice(0, 100) : [],
         files: Array.isArray(doc.files) ? doc.files.map((f) => ({ name: f.name, path: f.path, contentType: f.contentType })).slice(0, 200) : [],

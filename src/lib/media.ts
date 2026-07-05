@@ -6,7 +6,7 @@ export const MEDIA_KINDS: MediaKind[] = ['image', 'vector', 'design', 'video', '
 
 const EXT_KIND: Record<string, MediaKind> = {
   // images
-  png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', webp: 'image', avif: 'image', bmp: 'image', tif: 'image', tiff: 'image', heic: 'image', ico: 'image',
+  png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', webp: 'image', avif: 'image', bmp: 'image', tif: 'image', tiff: 'image', heic: 'image', heif: 'image', ico: 'image',
   // vector
   svg: 'vector', eps: 'vector',
   // design source files

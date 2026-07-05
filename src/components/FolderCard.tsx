@@ -4,6 +4,7 @@ import { FolderOpen, Trash2 } from 'lucide-react';
 import type { Collection } from '../lib/types';
 import { api } from '../lib/api';
 import { dtHasFiles, readAssetIds, readFolderId, readDropped, uploadDroppedTree } from '../lib/dnd';
+import { MediaPreview } from './MediaPreview';
 import { useToast } from './Toast';
 
 // A collection tile that is both a drag source (drag it onto another folder to
@@ -65,9 +66,9 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged }: {
         '&:hover': { borderColor: 'primary.main', boxShadow: '0 10px 24px rgba(15,23,42,.12)' },
       }}
     >
-      <Box sx={{ aspectRatio: '16 / 9', bgcolor: 'action.hover', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+      <Box sx={{ aspectRatio: '16 / 9', bgcolor: 'action.hover', display: 'grid', placeItems: 'center', overflow: 'hidden', pointerEvents: 'none' }}>
         {busy ? <CircularProgress size={22} />
-          : c.coverUrl ? <Box component="img" src={c.coverUrl} alt={c.name} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : c.cover ? <MediaPreview url={c.cover.url} filename={c.cover.filename} contentType={c.cover.content_type} variant="thumb" alt={c.name} />
           : <FolderOpen size={28} opacity={0.4} />}
       </Box>
       <Box sx={{ p: 1.25 }}>

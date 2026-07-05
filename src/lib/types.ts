@@ -47,6 +47,7 @@ export interface Collection {
   parent_id?: string | null;
   cover_asset_id: string | null;
   coverUrl?: string | null;
+  cover?: { url: string; filename: string | null; content_type: string | null } | null;
   count?: number;
   subfolderCount?: number;
   created_at: string;

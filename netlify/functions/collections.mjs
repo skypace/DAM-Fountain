@@ -17,26 +17,37 @@ function shapeAsset(row) {
   };
 }
 
+// Resolve chosen-cover assets for a set of collection rows in one query.
+// Returns a Map<assetId, { url, filename, content_type }> for ANY media type,
+// so PDFs / videos / etc. can act as a folder cover (rendered via MediaPreview).
+async function coverMapFor(rows) {
+  const coverIds = [...new Set(rows.map((c) => c.cover_asset_id).filter(Boolean))];
+  const map = new Map();
+  if (coverIds.length) {
+    const covers = await db('GET', `assets?id=in.(${coverIds.map(q).join(',')})&select=id,storage_path,filename,content_type`);
+    for (const a of covers) map.set(a.id, { url: publicUrl(a.storage_path), filename: a.filename, content_type: a.content_type, storage_path: a.storage_path });
+  }
+  return map;
+}
+const shapeCollection = (c, covers, extra = {}) => {
+  const cover = c.cover_asset_id ? covers.get(c.cover_asset_id) || null : null;
+  return {
+    ...c,
+    count: c.collection_assets?.[0]?.count ?? 0,
+    cover,
+    // Back-compat: coverUrl is the image-only URL (null for non-images).
+    coverUrl: cover && isImg(cover.storage_path) ? cover.url : null,
+    collection_assets: undefined,
+    ...extra,
+  };
+};
+
 async function list() {
   const rows = await db('GET', 'collections?select=*,collection_assets(count)&order=created_at.desc');
-  // Resolve the public URL of each collection's chosen cover image in one query.
-  const coverIds = [...new Set(rows.map((c) => c.cover_asset_id).filter(Boolean))];
-  const coverUrl = new Map();
-  if (coverIds.length) {
-    const covers = await db('GET', `assets?id=in.(${coverIds.map(q).join(',')})&select=id,storage_path`);
-    for (const a of covers) coverUrl.set(a.id, isImg(a.storage_path) ? publicUrl(a.storage_path) : null);
-  }
+  const covers = await coverMapFor(rows);
   const subfolderCount = new Map();
   for (const c of rows) if (c.parent_id) subfolderCount.set(c.parent_id, (subfolderCount.get(c.parent_id) || 0) + 1);
-  return json({
-    collections: rows.map((c) => ({
-      ...c,
-      count: c.collection_assets?.[0]?.count ?? 0,
-      subfolderCount: subfolderCount.get(c.id) || 0,
-      coverUrl: c.cover_asset_id ? coverUrl.get(c.cover_asset_id) || null : null,
-      collection_assets: undefined,
-    })),
-  });
+  return json({ collections: rows.map((c) => shapeCollection(c, covers, { subfolderCount: subfolderCount.get(c.id) || 0 })) });
 }
 
 async function detail(id) {
@@ -46,18 +57,8 @@ async function detail(id) {
   const assets = links.map((l) => shapeAsset(l.asset)).filter(Boolean);
   // Sub-folders of this collection, each with a direct asset count + cover.
   const childRows = await db('GET', `collections?parent_id=eq.${q(id)}&select=*,collection_assets(count)&order=name.asc`);
-  const coverIds = [...new Set(childRows.map((c) => c.cover_asset_id).filter(Boolean))];
-  const coverUrl = new Map();
-  if (coverIds.length) {
-    const covers = await db('GET', `assets?id=in.(${coverIds.map(q).join(',')})&select=id,storage_path`);
-    for (const a of covers) coverUrl.set(a.id, isImg(a.storage_path) ? publicUrl(a.storage_path) : null);
-  }
-  const children = childRows.map((c) => ({
-    ...c,
-    count: c.collection_assets?.[0]?.count ?? 0,
-    coverUrl: c.cover_asset_id ? coverUrl.get(c.cover_asset_id) || null : null,
-    collection_assets: undefined,
-  }));
+  const covers = await coverMapFor(childRows);
+  const children = childRows.map((c) => shapeCollection(c, covers));
   // Parent breadcrumb (name only) if this is itself a sub-folder.
   let parent = null;
   if (rows[0].parent_id) {

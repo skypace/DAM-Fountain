@@ -155,12 +155,12 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
           <Button size="small" onClick={moveToCollection} disabled={busy || !collectionId}>Move</Button>
           <Button size="small" color="error" startIcon={<Trash2 size={15} />} onClick={del} disabled={busy}>Delete</Button>
         </Stack>
-        {asset.thumbnailUrl && (asset.collections?.length ?? 0) > 0 && (
+        {(asset.collections?.length ?? 0) > 0 && (
           <>
             <Divider sx={{ my: 2 }} />
             <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
               <ImageIcon size={15} />
-              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>Use as collection cover</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>Use as folder cover / thumbnail</Typography>
             </Stack>
             <Stack direction="row" flexWrap="wrap" useFlexGap>
               {(asset.collections || []).map((col) => (

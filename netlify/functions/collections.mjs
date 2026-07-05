@@ -63,7 +63,10 @@ export async function handler(event) {
         if (b.action === 'remove') {
           await db('DELETE', `collection_assets?collection_id=eq.${q(collectionId)}&asset_id=in.(${assetIds.map(q).join(',')})`);
         } else {
-          await db('POST', 'collection_assets', { body: assetIds.map((asset_id) => ({ collection_id: collectionId, asset_id })), prefer: 'resolution=merge-duplicates,return=minimal' });
+          // Single-membership: an asset lives in exactly one collection, so
+          // adding = moving. Clear any existing membership first, then insert.
+          await db('DELETE', `collection_assets?asset_id=in.(${assetIds.map(q).join(',')})`);
+          await db('POST', 'collection_assets', { body: assetIds.map((asset_id) => ({ collection_id: collectionId, asset_id })), prefer: 'return=minimal' });
         }
         return json({ ok: true });
       }

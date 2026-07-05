@@ -270,7 +270,9 @@ async function handleBulk(payload) {
   }
 
   if (payload.collectionId) {
-    await db('POST', 'collection_assets', { body: ids.map((asset_id) => ({ collection_id: payload.collectionId, asset_id })), prefer: 'resolution=merge-duplicates,return=minimal' });
+    // Single-membership: move into the target collection (clear any prior one).
+    await db('DELETE', `collection_assets?asset_id=in.${inList}`);
+    await db('POST', 'collection_assets', { body: ids.map((asset_id) => ({ collection_id: payload.collectionId, asset_id })), prefer: 'return=minimal' });
   }
 
   return json({ ok: true, count: ids.length });

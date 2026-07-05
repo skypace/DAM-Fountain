@@ -67,9 +67,9 @@ export function BulkActionBar({ ids, assets, collections, onDone, onClear }: {
         />
       </Stack>
 
-      <FormControl size="small" sx={{ minWidth: 140 }}>
-        <InputLabel>Add to collection</InputLabel>
-        <Select label="Add to collection" value="" disabled={busy || !collections.length} onChange={(e) => run({ ids, collectionId: String(e.target.value) }, 'Added to collection')}>
+      <FormControl size="small" sx={{ minWidth: 150 }}>
+        <InputLabel>Move to collection</InputLabel>
+        <Select label="Move to collection" value="" disabled={busy || !collections.length} onChange={(e) => run({ ids, collectionId: String(e.target.value) }, 'Moved to collection')}>
           {collections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
         </Select>
       </FormControl>

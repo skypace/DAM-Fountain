@@ -79,10 +79,10 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
       toast('Saved.'); onSaved(updated);
     } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
-  async function addToCollection() {
+  async function moveToCollection() {
     if (!collectionId) return;
     setBusy(true);
-    try { await api.addToCollection(collectionId, [asset.id]); toast('Added to collection.'); }
+    try { await api.addToCollection(collectionId, [asset.id]); toast('Moved to collection.'); onSaved(asset); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
   async function share() {
@@ -145,12 +145,12 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
           <Button size="small" startIcon={<History size={15} />} onClick={() => (versions ? setVersions(null) : loadVersions())}>Versions</Button>
           <Box sx={{ flex: 1 }} />
           <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Add to collection</InputLabel>
-            <Select label="Add to collection" value={collectionId} onChange={(e) => setCollectionId(e.target.value)}>
+            <InputLabel>Move to collection</InputLabel>
+            <Select label="Move to collection" value={collectionId} onChange={(e) => setCollectionId(e.target.value)}>
               {collections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
             </Select>
           </FormControl>
-          <Button size="small" onClick={addToCollection} disabled={busy || !collectionId}>Add</Button>
+          <Button size="small" onClick={moveToCollection} disabled={busy || !collectionId}>Move</Button>
           <Button size="small" color="error" startIcon={<Trash2 size={15} />} onClick={del} disabled={busy}>Delete</Button>
         </Stack>
         {asset.thumbnailUrl && (asset.collections?.length ?? 0) > 0 && (

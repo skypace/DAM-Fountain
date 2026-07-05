@@ -4,11 +4,12 @@ import {
   Alert, Box, Button, Chip, CircularProgress, FormControl, InputAdornment, InputLabel, Menu,
   MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
-import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus } from 'lucide-react';
+import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus, UploadCloud } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { ASSET_TYPES } from '../lib/types';
 import { api, type AssetFilters } from '../lib/api';
 import { useBrands } from '../lib/useBrands';
+import { dtHasFiles, readAssetIds, readDropped, uploadDroppedTree } from '../lib/dnd';
 import { mediaKind, MEDIA_KINDS, MEDIA_META } from '../lib/media';
 import { AssetGrid } from '../components/AssetGrid';
 import { AssetTable } from '../components/AssetTable';
@@ -44,6 +45,8 @@ export function LibraryPage() {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const folderRef = useRef<HTMLInputElement | null>(null);
+  const [dropOver, setDropOver] = useState(false);
+  const [chipOver, setChipOver] = useState<string | null>(null);
 
   const toggleSelect = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   // Merge a section table's selection into the global set without disturbing
@@ -105,6 +108,24 @@ export function LibraryPage() {
       toast(`Uploaded ${fileCount} file${fileCount === 1 ? '' : 's'} into ${groups.size} collection${groups.size === 1 ? '' : 's'}.`);
     } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
+  // Desktop drop anywhere on the library → upload. Loose files land in the
+  // library root; dropped folders become collections (nested trees preserved).
+  async function onPageDrop(e: React.DragEvent) {
+    if (!dtHasFiles(e.dataTransfer)) return;
+    e.preventDefault(); setDropOver(false); setBusy(true);
+    try {
+      const dropped = await readDropped(e.dataTransfer);
+      if (dropped.length) { const r = await uploadDroppedTree(dropped, { parentId: collection || null, type: uploadType as Asset['type'] }); await load(); toast(`Uploaded ${r.files} file${r.files === 1 ? '' : 's'}${r.collections ? ` · ${r.collections} collection${r.collections === 1 ? '' : 's'}` : ''}.`); }
+    } catch (err) { toast(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); }
+  }
+  // Drop an asset drag onto a collection chip → move it into that collection.
+  async function onChipDrop(e: React.DragEvent, collectionId: string) {
+    e.preventDefault(); e.stopPropagation(); setChipOver(null);
+    const ids = readAssetIds(e.dataTransfer);
+    if (!ids.length) return;
+    try { await api.addToCollection(collectionId, ids); await load(); toast(`Moved ${ids.length} asset${ids.length === 1 ? '' : 's'}.`); }
+    catch (err) { toast(err instanceof Error ? err.message : String(err)); }
+  }
   async function runImport() {
     const urls = importText.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
     if (!urls.length) { toast('Paste at least one URL.'); return; }
@@ -150,7 +171,22 @@ export function LibraryPage() {
   const selectedIds = [...selected];
 
   return (
-    <Stack spacing={2}>
+    <Stack
+      spacing={2}
+      onDragOver={(e) => { if (dtHasFiles(e.dataTransfer)) { e.preventDefault(); setDropOver(true); } }}
+      onDragLeave={(e) => { if (e.currentTarget === e.target) setDropOver(false); }}
+      onDrop={onPageDrop}
+      sx={{ position: 'relative', minHeight: '60vh' }}
+    >
+      {dropOver && (
+        <Box sx={{ position: 'fixed', inset: 0, zIndex: 1300, bgcolor: 'rgba(15,23,42,.55)', display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+          <Stack alignItems="center" spacing={1.5} sx={{ color: '#fff' }}>
+            <UploadCloud size={44} />
+            <Typography variant="h6">{collection ? `Drop to add to “${activeCollection?.name}”` : 'Drop files or folders to upload'}</Typography>
+            <Typography variant="body2" sx={{ opacity: 0.85 }}>{collection ? 'Folders become sub-folders' : 'Folders become collections'}</Typography>
+          </Stack>
+        </Box>
+      )}
       <PageHeader
         title="Library"
         subtitle={`${shownAssets.length} asset${shownAssets.length === 1 ? '' : 's'}${hasFilters ? ' · filtered' : ''} · Alameda Soda + Brix`}
@@ -208,9 +244,12 @@ export function LibraryPage() {
                 label={typeof c.count === 'number' ? `${c.name} · ${c.count}` : c.name}
                 clickable
                 onClick={() => setCollection(c.id)}
-                color={collection === c.id ? 'primary' : 'default'}
-                variant={collection === c.id ? 'filled' : 'outlined'}
-                sx={{ flexShrink: 0 }}
+                onDragOver={(e) => { e.preventDefault(); if (!dtHasFiles(e.dataTransfer)) setChipOver(c.id); }}
+                onDragLeave={() => setChipOver((v) => (v === c.id ? null : v))}
+                onDrop={(e) => onChipDrop(e, c.id)}
+                color={chipOver === c.id ? 'primary' : collection === c.id ? 'primary' : 'default'}
+                variant={collection === c.id || chipOver === c.id ? 'filled' : 'outlined'}
+                sx={{ flexShrink: 0, ...(chipOver === c.id ? { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 } : {}) }}
               />
             ))}
           </Stack>

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, CircularProgress, IconButton, Paper, Stack, TextField, Typography } from '@mui/material';
-import { Plus, Trash2, FolderOpen } from 'lucide-react';
+import { Box, Button, CircularProgress, Stack, TextField, Typography } from '@mui/material';
+import { Plus } from 'lucide-react';
 import type { Collection } from '../lib/types';
 import { api } from '../lib/api';
+import { FolderCard } from '../components/FolderCard';
 import { PageHeader } from '../components/PageHeader';
 import { useToast } from '../components/Toast';
 
@@ -45,26 +46,13 @@ export function CollectionsPage() {
           </Stack>
         )}
       />
-      {null}
+      <Typography variant="caption" color="text.secondary">
+        Tip: drag assets or files from your desktop onto a folder to add them, or drag one folder onto another to nest it.
+      </Typography>
       {loading ? <Box sx={{ display: 'grid', placeItems: 'center', py: 6 }}><CircularProgress /></Box> : (
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1.5 }}>
           {collections.map((c) => (
-            <Paper key={c.id} variant="outlined" sx={{ overflow: 'hidden', cursor: 'pointer', transition: '.15s', '&:hover': { borderColor: 'primary.main', boxShadow: '0 10px 24px rgba(15,23,42,.12)' } }} onClick={() => nav(`/collections/${c.id}`)}>
-              <Box sx={{ aspectRatio: '16 / 9', bgcolor: 'action.hover', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-                {c.coverUrl
-                  ? <Box component="img" src={c.coverUrl} alt={c.name} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <FolderOpen size={30} opacity={0.4} />}
-              </Box>
-              <Box sx={{ p: 1.5 }}>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Typography variant="subtitle1" noWrap sx={{ flex: 1 }}>{c.name}</Typography>
-                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); del(c); }}><Trash2 size={15} /></IconButton>
-                </Stack>
-                <Typography variant="caption" color="text.secondary">
-                  {c.count ?? 0} asset{(c.count ?? 0) === 1 ? '' : 's'}{c.subfolderCount ? ` · ${c.subfolderCount} folder${c.subfolderCount === 1 ? '' : 's'}` : ''}
-                </Typography>
-              </Box>
-            </Paper>
+            <FolderCard key={c.id} collection={c} onOpen={(cid) => nav(`/collections/${cid}`)} onDelete={del} onChanged={load} />
           ))}
           {!collections.length && <Typography color="text.secondary">No collections yet.</Typography>}
         </Box>

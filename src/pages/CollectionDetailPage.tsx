@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Alert, Box, Button, Chip, CircularProgress, IconButton, Paper, Stack, TextField, Typography } from '@mui/material';
-import { ArrowLeft, Share2, Copy, Download, FolderPlus, FolderOpen, Folder, Trash2 } from 'lucide-react';
+import { Alert, Box, Button, Chip, CircularProgress, Stack, TextField, Typography } from '@mui/material';
+import { ArrowLeft, Share2, Copy, Download, FolderPlus, Folder, UploadCloud } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { api, downloadZip } from '../lib/api';
+import { dtHasFiles, readDropped, uploadDroppedTree } from '../lib/dnd';
 import { AssetGrid } from '../components/AssetGrid';
 import { AssetDialog } from '../components/AssetDialog';
+import { FolderCard } from '../components/FolderCard';
 import { useToast } from '../components/Toast';
 
 export function CollectionDetailPage() {
@@ -24,6 +26,8 @@ export function CollectionDetailPage() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dropOver, setDropOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   async function load() {
     setLoading(true); setError(null);
@@ -45,6 +49,16 @@ export function CollectionDetailPage() {
     try { await api.deleteCollection(c.id); await load(); toast('Sub-folder deleted.'); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); }
   }
+  // Desktop drop anywhere on the page → upload into this collection (loose files
+  // land here; dropped folders become sub-folders).
+  async function onPageDrop(e: React.DragEvent) {
+    if (!dtHasFiles(e.dataTransfer)) return;
+    e.preventDefault(); setDropOver(false); setUploading(true);
+    try {
+      const dropped = await readDropped(e.dataTransfer);
+      if (dropped.length) { const r = await uploadDroppedTree(dropped, { parentId: id }); await load(); toast(`Uploaded ${r.files} file${r.files === 1 ? '' : 's'}${r.collections ? ` · ${r.collections} sub-folder${r.collections === 1 ? '' : 's'}` : ''}.`); }
+    } catch (err) { toast(err instanceof Error ? err.message : String(err)); } finally { setUploading(false); }
+  }
 
   async function shareCollection() {
     try { const s = await api.createShare({ kind: 'collection', collectionId: id, allowDownload: true }); setShareUrl(`${location.origin}/s/${s.token}`); toast('Share link created.'); }
@@ -61,7 +75,22 @@ export function CollectionDetailPage() {
   if (error) return <Alert severity="warning" action={<Button size="small" onClick={load}>Retry</Button>}>{error}</Alert>;
 
   return (
-    <Stack spacing={2}>
+    <Stack
+      spacing={2}
+      onDragOver={(e) => { if (dtHasFiles(e.dataTransfer)) { e.preventDefault(); setDropOver(true); } }}
+      onDragLeave={(e) => { if (e.currentTarget === e.target) setDropOver(false); }}
+      onDrop={onPageDrop}
+      sx={{ position: 'relative', minHeight: '60vh' }}
+    >
+      {(dropOver || uploading) && (
+        <Box sx={{ position: 'fixed', inset: 0, zIndex: 1300, bgcolor: 'rgba(15,23,42,.55)', display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+          <Stack alignItems="center" spacing={1.5} sx={{ color: '#fff' }}>
+            {uploading ? <CircularProgress sx={{ color: '#fff' }} /> : <UploadCloud size={44} />}
+            <Typography variant="h6">{uploading ? 'Uploading…' : `Drop to add to “${collection?.name}”`}</Typography>
+            {!uploading && <Typography variant="body2" sx={{ opacity: 0.85 }}>Folders become sub-folders</Typography>}
+          </Stack>
+        </Box>
+      )}
       <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
         <Button size="small" startIcon={<ArrowLeft size={16} />} onClick={() => nav('/collections')}>Collections</Button>
         {parent && <Button size="small" color="inherit" startIcon={<Folder size={15} />} onClick={() => nav(`/collections/${parent.id}`)}>{parent.name}</Button>}
@@ -88,22 +117,7 @@ export function CollectionDetailPage() {
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Folders</Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 1.5 }}>
             {children.map((c) => (
-              <Paper key={c.id} variant="outlined" sx={{ overflow: 'hidden', cursor: 'pointer', transition: '.15s', '&:hover': { borderColor: 'primary.main', boxShadow: '0 10px 24px rgba(15,23,42,.12)' } }} onClick={() => nav(`/collections/${c.id}`)}>
-                <Box sx={{ aspectRatio: '16 / 9', bgcolor: 'action.hover', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-                  {c.coverUrl
-                    ? <Box component="img" src={c.coverUrl} alt={c.name} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <FolderOpen size={26} opacity={0.4} />}
-                </Box>
-                <Box sx={{ p: 1.25 }}>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Typography variant="body2" noWrap sx={{ flex: 1, fontWeight: 600 }}>{c.name}</Typography>
-                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); delFolder(c); }}><Trash2 size={14} /></IconButton>
-                  </Stack>
-                  <Typography variant="caption" color="text.secondary">
-                    {c.count ?? 0} asset{(c.count ?? 0) === 1 ? '' : 's'}{c.subfolderCount ? ` · ${c.subfolderCount} folder${c.subfolderCount === 1 ? '' : 's'}` : ''}
-                  </Typography>
-                </Box>
-              </Paper>
+              <FolderCard key={c.id} collection={c} onOpen={(cid) => nav(`/collections/${cid}`)} onDelete={delFolder} onChanged={load} />
             ))}
           </Box>
         </Box>

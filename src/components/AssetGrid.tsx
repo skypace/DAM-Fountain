@@ -2,6 +2,7 @@ import { Box, Chip, Paper, Stack, Typography } from '@mui/material';
 import { Check } from 'lucide-react';
 import type { Asset } from '../lib/types';
 import { mediaKind, MEDIA_META } from '../lib/media';
+import { ASSET_MIME } from '../lib/dnd';
 import { MediaPreview } from './MediaPreview';
 
 export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect }: {
@@ -17,10 +18,19 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
         const isSel = !!(selectable && selected?.has(a.id));
         const act = () => (selectable && onToggleSelect ? onToggleSelect(a.id) : onOpen(a));
         const kind = mediaKind(a.content_type, a.filename);
+        // Drag an asset (or the whole selection, if this one is selected) onto a
+        // folder to move it there.
+        const onDragStart = (e: React.DragEvent) => {
+          const ids = selected?.has(a.id) && (selected.size > 1) ? [...selected] : [a.id];
+          e.dataTransfer.setData(ASSET_MIME, JSON.stringify(ids));
+          e.dataTransfer.effectAllowed = 'move';
+        };
         return (
           <Paper
             key={a.id}
             variant="outlined"
+            draggable
+            onDragStart={onDragStart}
             onClick={act}
             role="button"
             tabIndex={0}

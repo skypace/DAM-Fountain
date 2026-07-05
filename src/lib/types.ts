@@ -1,10 +1,19 @@
 export type AssetType = 'logo' | 'can' | 'equipment' | 'hero' | 'testimonial' | 'sell-sheet' | 'other';
-export type Brand = 'alameda' | 'brix' | 'shared';
+// Brands are dynamic (managed in dam.brands) so sister brands can be added — the
+// slug is just a string. The built-in trio below is the fallback / seed.
+export type Brand = string;
 export type AssetStatus = 'draft' | 'approved' | 'archived';
 export type Role = 'viewer' | 'contributor' | 'admin';
 
+export interface BrandInfo { slug: string; label: string; is_sister: boolean; sort_order: number }
+
 export const ASSET_TYPES: AssetType[] = ['logo', 'can', 'equipment', 'hero', 'testimonial', 'sell-sheet', 'other'];
-export const BRANDS: Brand[] = ['alameda', 'brix', 'shared'];
+export const BRANDS: string[] = ['alameda', 'brix', 'shared'];
+export const DEFAULT_BRANDS: BrandInfo[] = [
+  { slug: 'alameda', label: 'Alameda Soda', is_sister: false, sort_order: 10 },
+  { slug: 'brix', label: 'Brix Beverage', is_sister: false, sort_order: 20 },
+  { slug: 'shared', label: 'Shared', is_sister: false, sort_order: 30 },
+];
 export const STATUSES: AssetStatus[] = ['draft', 'approved', 'archived'];
 
 export interface Tag { id: string; name: string; count?: number }
@@ -63,7 +72,7 @@ export interface Member { user_id: string; email: string | null; role: Role; cre
 
 export interface GuidelineFile { name: string; path?: string; contentType?: string; url?: string }
 export interface GuidelineFont { name: string; note?: string; path?: string; url?: string; format?: string }
-export type BrandKey = 'alameda' | 'brix' | 'shared';
+export type BrandKey = string;
 export interface BrandGuidelines {
   colors: { name: string; hex: string }[];
   fonts: GuidelineFont[];

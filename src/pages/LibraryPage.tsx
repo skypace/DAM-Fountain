@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert, Box, Button, Chip, CircularProgress, FormControl, InputAdornment, InputLabel, Menu,
   MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
-import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen } from 'lucide-react';
+import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
-import { ASSET_TYPES, BRANDS } from '../lib/types';
+import { ASSET_TYPES } from '../lib/types';
 import { api, type AssetFilters } from '../lib/api';
+import { useBrands } from '../lib/useBrands';
 import { mediaKind, MEDIA_KINDS, MEDIA_META } from '../lib/media';
 import { AssetGrid } from '../components/AssetGrid';
 import { AssetTable } from '../components/AssetTable';
@@ -20,6 +21,7 @@ import { useToast } from '../components/Toast';
 export function LibraryPage() {
   const toast = useToast();
   const navigate = useNavigate();
+  const { brands: brandList } = useBrands();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -41,6 +43,7 @@ export function LibraryPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [view, setView] = useState<'grid' | 'table'>('grid');
+  const folderRef = useRef<HTMLInputElement | null>(null);
 
   const toggleSelect = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   // Merge a section table's selection into the global set without disturbing
@@ -72,6 +75,34 @@ export function LibraryPage() {
         ok++;
       }
       toast(`Uploaded ${ok} asset${ok === 1 ? '' : 's'}.`); await load();
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
+
+  // Upload one or more folders — each folder (by its immediate name) becomes a
+  // collection, and its files are uploaded and moved into it.
+  async function uploadFolders(files: FileList | null) {
+    if (!files?.length) return;
+    setBusy(true);
+    try {
+      const groups = new Map<string, File[]>();
+      for (const f of Array.from(files)) {
+        const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath || '';
+        const segs = rel.split('/').filter(Boolean);
+        const folder = segs.length >= 2 ? segs[segs.length - 2] : (segs[0] || 'Uploads');
+        if (!groups.has(folder)) groups.set(folder, []);
+        groups.get(folder)!.push(f);
+      }
+      const cols = await api.listCollections();
+      let fileCount = 0;
+      for (const [name, groupFiles] of groups) {
+        let col = cols.find((c) => c.name.toLowerCase() === name.toLowerCase());
+        if (!col) { col = await api.createCollection(name); cols.push(col); }
+        const ids: string[] = [];
+        for (const f of groupFiles) { const a = await api.uploadFile(f, { type: uploadType as Asset['type'] }); ids.push(a.id); fileCount++; }
+        if (ids.length) await api.addToCollection(col.id, ids);
+      }
+      await load();
+      toast(`Uploaded ${fileCount} file${fileCount === 1 ? '' : 's'} into ${groups.size} collection${groups.size === 1 ? '' : 's'}.`);
     } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
   async function runImport() {
@@ -135,6 +166,16 @@ export function LibraryPage() {
               Upload
               <input hidden type="file" multiple onChange={(e) => { upload(e.target.files); e.currentTarget.value = ''; }} />
             </Button>
+            <Tooltip title="Upload folders — each folder becomes a collection">
+              <Button variant="outlined" startIcon={<FolderPlus size={16} />} disabled={busy} onClick={() => folderRef.current?.click()}>
+                Upload folder
+              </Button>
+            </Tooltip>
+            <input
+              ref={(el) => { folderRef.current = el; if (el) { el.setAttribute('webkitdirectory', ''); el.setAttribute('directory', ''); } }}
+              hidden type="file" multiple
+              onChange={(e) => { uploadFolders(e.target.files); e.currentTarget.value = ''; }}
+            />
             <Button variant="outlined" startIcon={<Globe size={16} />} onClick={() => setShowImport((v) => !v)}>Import URL</Button>
             {view === 'grid' && (
               <Button variant={selectMode ? 'contained' : 'outlined'} color="secondary" onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}>
@@ -214,7 +255,7 @@ export function LibraryPage() {
           <FormControl size="small" sx={{ minWidth: 130 }}><InputLabel>Type</InputLabel>
             <Select label="Type" value={type} onChange={(e) => setType(e.target.value)}><MenuItem value="">All types</MenuItem>{ASSET_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}</Select></FormControl>
           <FormControl size="small" sx={{ minWidth: 130 }}><InputLabel>Brand</InputLabel>
-            <Select label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)}><MenuItem value="">All brands</MenuItem>{BRANDS.map((b) => <MenuItem key={b} value={b} sx={{ textTransform: 'capitalize' }}>{b}</MenuItem>)}</Select></FormControl>
+            <Select label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)}><MenuItem value="">All brands</MenuItem>{brandList.map((b) => <MenuItem key={b.slug} value={b.slug}>{b.label}</MenuItem>)}</Select></FormControl>
           <FormControl size="small" sx={{ minWidth: 140 }}><InputLabel>Tag</InputLabel>
             <Select label="Tag" value={tag} onChange={(e) => setTag(e.target.value)}><MenuItem value="">All tags</MenuItem>{tags.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.count})</MenuItem>)}</Select></FormControl>
           <FormControl size="small" sx={{ minWidth: 140 }}><InputLabel>Media</InputLabel>

@@ -1,7 +1,10 @@
 import { preflight, json, requireRole } from './_shared/http.mjs';
 import { db, q, publicUrl } from './_shared/supabase.mjs';
 
-const BRANDS = ['alameda', 'brix', 'shared'];
+// Brands are dynamic (dam.brands) — accept any slug-shaped brand key so sister
+// brands get their own guidelines doc.
+const isBrand = (b) => typeof b === 'string' && /^[a-z0-9-]{1,48}$/.test(b);
+const BRANDS = { includes: isBrand };
 const EMPTY = { colors: [], fonts: [], sections: [], files: [] };
 
 // Compute public URLs for any uploaded font files + resource files.

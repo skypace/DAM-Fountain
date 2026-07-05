@@ -3,19 +3,15 @@ import {
   Box, Button, CircularProgress, Divider, IconButton, Paper, Stack, TextField, ToggleButton,
   ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
-import { Plus, Trash2, Save, Upload, Download, FileText, Copy, Type } from 'lucide-react';
+import { Plus, Trash2, Save, Upload, Download, FileText, Copy, Type, PlusCircle } from 'lucide-react';
 import type { Asset, BrandGuidelines, BrandKey, GuidelineFile } from '../lib/types';
 import { api } from '../lib/api';
+import { useBrands } from '../lib/useBrands';
 import { PageHeader } from '../components/PageHeader';
 import { useToast } from '../components/Toast';
 
 const EMPTY: BrandGuidelines = { colors: [], fonts: [], sections: [], files: [] };
 const HEX_RE = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
-const BRANDS: { key: BrandKey; label: string }[] = [
-  { key: 'brix', label: 'Brix Beverage' },
-  { key: 'alameda', label: 'Alameda Soda' },
-  { key: 'shared', label: 'Shared' },
-];
 const fontFormat = (name: string) => {
   const ext = name.split('.').pop()?.toLowerCase();
   return ext === 'woff2' ? 'woff2' : ext === 'woff' ? 'woff' : ext === 'otf' ? 'opentype' : ext === 'ttf' ? 'truetype' : '';
@@ -23,7 +19,19 @@ const fontFormat = (name: string) => {
 
 export function GuidelinesPage() {
   const toast = useToast();
+  const { brands: brandList, reload: reloadBrands } = useBrands();
   const [brand, setBrand] = useState<BrandKey>('brix');
+
+  async function addSisterBrand() {
+    const label = window.prompt('Sister brand name (e.g. "Alameda Kombucha")');
+    if (!label || !label.trim()) return;
+    try {
+      const b = await api.createBrand(label.trim(), { is_sister: true });
+      await reloadBrands();
+      setBrand(b.slug);
+      toast(`Added sister brand “${b.label}”.`);
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+  }
   const [doc, setDoc] = useState<BrandGuidelines>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,9 +117,12 @@ export function GuidelinesPage() {
         subtitle="Per-brand colors, fonts (incl. uploaded typeface files), notes, and resource files"
         actions={(
           <>
-            <ToggleButtonGroup size="small" exclusive value={brand} onChange={(_, v) => v && setBrand(v)}>
-              {BRANDS.map((b) => <ToggleButton key={b.key} value={b.key}>{b.label}</ToggleButton>)}
+            <ToggleButtonGroup size="small" exclusive value={brand} onChange={(_, v) => v && setBrand(v)} sx={{ flexWrap: 'wrap' }}>
+              {brandList.map((b) => <ToggleButton key={b.slug} value={b.slug}>{b.label}</ToggleButton>)}
             </ToggleButtonGroup>
+            <Tooltip title="Add a sister brand — gets its own guidelines + a brand filter in the library">
+              <Button size="small" color="secondary" startIcon={<PlusCircle size={15} />} onClick={addSisterBrand}>Sister brand</Button>
+            </Tooltip>
             <Button variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={16} />} onClick={() => save()} disabled={saving}>Save</Button>
           </>
         )}
@@ -236,7 +247,7 @@ export function GuidelinesPage() {
           )}
 
           <Divider />
-          <Box><Button variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={16} />} onClick={() => save()} disabled={saving}>Save {BRANDS.find((b) => b.key === brand)?.label} guidelines</Button></Box>
+          <Box><Button variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={16} />} onClick={() => save()} disabled={saving}>Save {brandList.find((b) => b.slug === brand)?.label || brand} guidelines</Button></Box>
         </>
       )}
     </Stack>

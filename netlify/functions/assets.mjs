@@ -2,7 +2,10 @@ import { preflight, json, requireRole } from './_shared/http.mjs';
 import { db, q, publicUrl, storagePut, storageDelete, storageList, BUCKET, SUPABASE_URL, SERVICE_KEY } from './_shared/supabase.mjs';
 
 const TYPES = ['logo', 'can', 'equipment', 'hero', 'testimonial', 'sell-sheet', 'other'];
-const BRANDS = ['alameda', 'brix', 'shared'];
+// Brands are dynamic (dam.brands) so sister brands can be added. Accept any
+// slug-shaped value; the UI populates the picker from the registry.
+const isBrand = (b) => typeof b === 'string' && /^[a-z0-9-]{1,48}$/.test(b);
+const BRANDS = { includes: isBrand };
 // Any file type is accepted (images, vector, design source, video, audio, docs,
 // archives, fonts…). This map only helps guess a content-type from an extension.
 const MIME_BY_EXT = {

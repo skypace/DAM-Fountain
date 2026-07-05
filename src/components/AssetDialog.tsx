@@ -5,7 +5,8 @@ import {
 } from '@mui/material';
 import { Copy, Download, Trash2, Share2, Image as ImageIcon, Sparkles, RefreshCw, History, RotateCcw } from 'lucide-react';
 import type { Asset, AssetVersion, Collection } from '../lib/types';
-import { ASSET_TYPES, BRANDS, STATUSES } from '../lib/types';
+import { ASSET_TYPES, STATUSES } from '../lib/types';
+import { useBrands } from '../lib/useBrands';
 import { api } from '../lib/api';
 import { MediaPreview } from './MediaPreview';
 import { useToast } from './Toast';
@@ -25,6 +26,7 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
   const [description, setDescription] = useState(asset.description || '');
   const [type, setType] = useState(asset.type);
   const [brand, setBrand] = useState(asset.brand);
+  const { brands: brandList } = useBrands();
   const [status, setStatus] = useState(asset.status);
   const [tags, setTags] = useState<string[]>(asset.tags.map((t) => t.name));
   const [collectionId, setCollectionId] = useState('');
@@ -115,7 +117,7 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
                 </Select></FormControl>
               <FormControl size="small" fullWidth><InputLabel>Brand</InputLabel>
                 <Select label="Brand" value={brand} onChange={(e) => setBrand(e.target.value as Asset['brand'])}>
-                  {BRANDS.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}
+                  {brandList.map((b) => <MenuItem key={b.slug} value={b.slug}>{b.label}</MenuItem>)}
                 </Select></FormControl>
               <FormControl size="small" fullWidth><InputLabel>Status</InputLabel>
                 <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value as Asset['status'])}>

@@ -4,9 +4,10 @@ import {
 } from '@mui/material';
 import { Download, Trash2, X, Tag as TagIcon, Sparkles } from 'lucide-react';
 import type { Asset, Collection } from '../lib/types';
-import { ASSET_TYPES, BRANDS, STATUSES } from '../lib/types';
+import { ASSET_TYPES, STATUSES } from '../lib/types';
 import { api, downloadZip } from '../lib/api';
 import { mediaKind } from '../lib/media';
+import { useBrands } from '../lib/useBrands';
 import { useToast } from './Toast';
 
 // Sticky bar shown when 1+ assets are selected — apply one action to all of them.
@@ -18,6 +19,7 @@ export function BulkActionBar({ ids, assets, collections, onDone, onClear }: {
   onClear: () => void;
 }) {
   const toast = useToast();
+  const { brands: brandList } = useBrands();
   const [busy, setBusy] = useState(false);
   const [tag, setTag] = useState('');
 
@@ -84,7 +86,7 @@ export function BulkActionBar({ ids, assets, collections, onDone, onClear }: {
       <FormControl size="small" sx={{ minWidth: 105 }}>
         <InputLabel>Brand</InputLabel>
         <Select label="Brand" value="" disabled={busy} onChange={(e) => run({ ids, brand: String(e.target.value) }, 'Brand set')}>
-          {BRANDS.map((b) => <MenuItem key={b} value={b} sx={{ textTransform: 'capitalize' }}>{b}</MenuItem>)}
+          {brandList.map((b) => <MenuItem key={b.slug} value={b.slug}>{b.label}</MenuItem>)}
         </Select>
       </FormControl>
 

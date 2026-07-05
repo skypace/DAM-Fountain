@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { token } from './auth';
-import type { Asset, AssetVersion, BrandGuidelines, Collection, GuidelineFile, Member, Share, Tag, AssetType, Brand } from './types';
+import type { Asset, AssetVersion, BrandGuidelines, BrandInfo, Collection, GuidelineFile, Member, Share, Tag, AssetType, Brand } from './types';
 
 const FN = '/.netlify/functions';
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://gfsdpwiqzshhexkofiif.supabase.co';
@@ -77,6 +77,11 @@ export const api = {
   },
 
   listTags: () => call<{ tags: Tag[] }>('/tags').then((r) => r.tags),
+
+  listBrands: () => call<{ brands: BrandInfo[] }>('/brands').then((r) => r.brands),
+  createBrand: (label: string, opts: { slug?: string; is_sister?: boolean } = {}) =>
+    call<{ brand: BrandInfo }>('/brands', { method: 'POST', body: JSON.stringify({ label, ...opts }) }).then((r) => r.brand),
+  deleteBrand: (slug: string) => call<{ ok: boolean }>(`/brands?slug=${encodeURIComponent(slug)}`, { method: 'DELETE' }),
 
   listCollections: () => call<{ collections: Collection[] }>('/collections').then((r) => r.collections),
   getCollection: (id: string) => call<{ collection: Collection; assets: Asset[] }>(`/collections?id=${encodeURIComponent(id)}`),

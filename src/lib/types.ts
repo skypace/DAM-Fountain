@@ -44,9 +44,11 @@ export interface Collection {
   name: string;
   slug: string;
   description: string | null;
+  parent_id?: string | null;
   cover_asset_id: string | null;
   coverUrl?: string | null;
   count?: number;
+  subfolderCount?: number;
   created_at: string;
 }
 

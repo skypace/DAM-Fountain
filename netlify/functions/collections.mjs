@@ -26,10 +26,13 @@ async function list() {
     const covers = await db('GET', `assets?id=in.(${coverIds.map(q).join(',')})&select=id,storage_path`);
     for (const a of covers) coverUrl.set(a.id, isImg(a.storage_path) ? publicUrl(a.storage_path) : null);
   }
+  const subfolderCount = new Map();
+  for (const c of rows) if (c.parent_id) subfolderCount.set(c.parent_id, (subfolderCount.get(c.parent_id) || 0) + 1);
   return json({
     collections: rows.map((c) => ({
       ...c,
       count: c.collection_assets?.[0]?.count ?? 0,
+      subfolderCount: subfolderCount.get(c.id) || 0,
       coverUrl: c.cover_asset_id ? coverUrl.get(c.cover_asset_id) || null : null,
       collection_assets: undefined,
     })),
@@ -41,7 +44,27 @@ async function detail(id) {
   if (!rows.length) return json({ error: 'not found' }, 404);
   const links = await db('GET', `collection_assets?collection_id=eq.${q(id)}&select=sort_order,asset:assets(*,asset_tags(tag:tags(id,name)),collection_assets(collection:collections(id,name)))&order=sort_order.asc`);
   const assets = links.map((l) => shapeAsset(l.asset)).filter(Boolean);
-  return json({ collection: rows[0], assets });
+  // Sub-folders of this collection, each with a direct asset count + cover.
+  const childRows = await db('GET', `collections?parent_id=eq.${q(id)}&select=*,collection_assets(count)&order=name.asc`);
+  const coverIds = [...new Set(childRows.map((c) => c.cover_asset_id).filter(Boolean))];
+  const coverUrl = new Map();
+  if (coverIds.length) {
+    const covers = await db('GET', `assets?id=in.(${coverIds.map(q).join(',')})&select=id,storage_path`);
+    for (const a of covers) coverUrl.set(a.id, isImg(a.storage_path) ? publicUrl(a.storage_path) : null);
+  }
+  const children = childRows.map((c) => ({
+    ...c,
+    count: c.collection_assets?.[0]?.count ?? 0,
+    coverUrl: c.cover_asset_id ? coverUrl.get(c.cover_asset_id) || null : null,
+    collection_assets: undefined,
+  }));
+  // Parent breadcrumb (name only) if this is itself a sub-folder.
+  let parent = null;
+  if (rows[0].parent_id) {
+    const p = await db('GET', `collections?id=eq.${q(rows[0].parent_id)}&select=id,name`);
+    parent = p[0] || null;
+  }
+  return json({ collection: rows[0], assets, children, parent });
 }
 
 export async function handler(event) {
@@ -73,7 +96,7 @@ export async function handler(event) {
         return json({ ok: true });
       }
       if (!b.name) return json({ error: 'name required' }, 400);
-      const rows = await db('POST', 'collections', { body: { name: b.name, slug: slugify(b.slug || b.name), description: b.description || null, created_by: auth.user.id }, prefer: 'return=representation' });
+      const rows = await db('POST', 'collections', { body: { name: b.name, slug: slugify(b.slug || b.name), description: b.description || null, parent_id: b.parent_id || null, created_by: auth.user.id }, prefer: 'return=representation' });
       return json({ collection: rows[0] }, 201);
     }
 
@@ -82,6 +105,9 @@ export async function handler(event) {
       if (!b.id) return json({ error: 'id required' }, 400);
       const patch = { updated_at: new Date().toISOString() };
       for (const f of ['name', 'description', 'cover_asset_id']) if (f in b) patch[f] = b[f];
+      // Move a folder under another (or to top-level with null). Guard the
+      // trivial self-parent cycle; deeper cycles are unlikely via the UI.
+      if ('parent_id' in b && b.parent_id !== b.id) patch.parent_id = b.parent_id || null;
       const rows = await db('PATCH', `collections?id=eq.${q(b.id)}`, { body: patch, prefer: 'return=representation' });
       return json({ collection: rows[0] });
     }

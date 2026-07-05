@@ -17,7 +17,8 @@ export function CollectionsPage() {
 
   async function load() {
     setLoading(true);
-    try { setCollections(await api.listCollections()); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
+    // Only top-level collections here; sub-folders are shown inside their parent.
+    try { setCollections((await api.listCollections()).filter((c) => !c.parent_id)); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -59,7 +60,9 @@ export function CollectionsPage() {
                   <Typography variant="subtitle1" noWrap sx={{ flex: 1 }}>{c.name}</Typography>
                   <IconButton size="small" onClick={(e) => { e.stopPropagation(); del(c); }}><Trash2 size={15} /></IconButton>
                 </Stack>
-                <Typography variant="caption" color="text.secondary">{c.count ?? 0} asset{(c.count ?? 0) === 1 ? '' : 's'}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {c.count ?? 0} asset{(c.count ?? 0) === 1 ? '' : 's'}{c.subfolderCount ? ` · ${c.subfolderCount} folder${c.subfolderCount === 1 ? '' : 's'}` : ''}
+                </Typography>
               </Box>
             </Paper>
           ))}

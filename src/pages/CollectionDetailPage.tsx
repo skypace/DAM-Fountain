@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Alert, Box, Button, Chip, CircularProgress, Stack, TextField, Typography } from '@mui/material';
-import { ArrowLeft, Share2, Copy, Download } from 'lucide-react';
+import { Alert, Box, Button, Chip, CircularProgress, IconButton, Paper, Stack, TextField, Typography } from '@mui/material';
+import { ArrowLeft, Share2, Copy, Download, FolderPlus, FolderOpen, Folder, Trash2 } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { api, downloadZip } from '../lib/api';
 import { AssetGrid } from '../components/AssetGrid';
@@ -14,6 +14,8 @@ export function CollectionDetailPage() {
   const toast = useToast();
   const [collection, setCollection] = useState<Collection | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [children, setChildren] = useState<Collection[]>([]);
+  const [parent, setParent] = useState<{ id: string; name: string } | null>(null);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,10 +29,22 @@ export function CollectionDetailPage() {
     setLoading(true); setError(null);
     try {
       const [detail, t, c] = await Promise.all([api.getCollection(id), api.listTags(), api.listCollections()]);
-      setCollection(detail.collection); setAssets(detail.assets); setAllTags(t); setCollections(c);
+      setCollection(detail.collection); setAssets(detail.assets); setChildren(detail.children || []); setParent(detail.parent || null); setAllTags(t); setCollections(c);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function addFolder() {
+    const nm = window.prompt('New folder name');
+    if (!nm || !nm.trim()) return;
+    try { const c = await api.createCollection(nm.trim(), undefined, id); await load(); toast(`Created folder “${c.name}”.`); }
+    catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+  }
+  async function delFolder(c: Collection) {
+    if (!confirm(`Delete sub-folder "${c.name}"? Its sub-folders are removed too; assets are not deleted.`)) return;
+    try { await api.deleteCollection(c.id); await load(); toast('Sub-folder deleted.'); }
+    catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+  }
 
   async function shareCollection() {
     try { const s = await api.createShare({ kind: 'collection', collectionId: id, allowDownload: true }); setShareUrl(`${location.origin}/s/${s.token}`); toast('Share link created.'); }
@@ -50,9 +64,12 @@ export function CollectionDetailPage() {
     <Stack spacing={2}>
       <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
         <Button size="small" startIcon={<ArrowLeft size={16} />} onClick={() => nav('/collections')}>Collections</Button>
+        {parent && <Button size="small" color="inherit" startIcon={<Folder size={15} />} onClick={() => nav(`/collections/${parent.id}`)}>{parent.name}</Button>}
         <Typography variant="h6">{collection?.name}</Typography>
         <Chip size="small" variant="outlined" label={`${assets.length} asset${assets.length === 1 ? '' : 's'}`} />
+        {children.length > 0 && <Chip size="small" variant="outlined" label={`${children.length} folder${children.length === 1 ? '' : 's'}`} />}
         <Box sx={{ flex: 1 }} />
+        <Button size="small" variant="outlined" startIcon={<FolderPlus size={15} />} onClick={addFolder}>Add folder</Button>
         <Button size="small" variant={selecting ? 'contained' : 'outlined'} onClick={() => { setSelecting((v) => !v); setSelected(new Set()); }}>{selecting ? 'Done' : 'Select'}</Button>
         {selecting && <Button size="small" color="error" disabled={!selected.size} onClick={removeSelected}>Remove ({selected.size})</Button>}
         <Button size="small" variant="outlined" startIcon={<Download size={15} />} disabled={!assets.length} onClick={() => downloadZip(assets, `${collection?.name || 'collection'}.zip`)}>Download ZIP</Button>
@@ -64,6 +81,32 @@ export function CollectionDetailPage() {
           <TextField size="small" fullWidth value={shareUrl} InputProps={{ readOnly: true }} />
           <Button size="small" variant="outlined" startIcon={<Copy size={15} />} onClick={() => navigator.clipboard.writeText(shareUrl).then(() => toast('Copied.'))}>Copy</Button>
         </Stack>
+      )}
+
+      {children.length > 0 && (
+        <Box>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Folders</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 1.5 }}>
+            {children.map((c) => (
+              <Paper key={c.id} variant="outlined" sx={{ overflow: 'hidden', cursor: 'pointer', transition: '.15s', '&:hover': { borderColor: 'primary.main', boxShadow: '0 10px 24px rgba(15,23,42,.12)' } }} onClick={() => nav(`/collections/${c.id}`)}>
+                <Box sx={{ aspectRatio: '16 / 9', bgcolor: 'action.hover', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+                  {c.coverUrl
+                    ? <Box component="img" src={c.coverUrl} alt={c.name} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <FolderOpen size={26} opacity={0.4} />}
+                </Box>
+                <Box sx={{ p: 1.25 }}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="body2" noWrap sx={{ flex: 1, fontWeight: 600 }}>{c.name}</Typography>
+                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); delFolder(c); }}><Trash2 size={14} /></IconButton>
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary">
+                    {c.count ?? 0} asset{(c.count ?? 0) === 1 ? '' : 's'}{c.subfolderCount ? ` · ${c.subfolderCount} folder${c.subfolderCount === 1 ? '' : 's'}` : ''}
+                  </Typography>
+                </Box>
+              </Paper>
+            ))}
+          </Box>
+        </Box>
       )}
 
       <AssetGrid assets={assets} onOpen={setOpen} selectable={selecting} selected={selected} onToggleSelect={toggle} />

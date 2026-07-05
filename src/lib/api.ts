@@ -84,9 +84,11 @@ export const api = {
   deleteBrand: (slug: string) => call<{ ok: boolean }>(`/brands?slug=${encodeURIComponent(slug)}`, { method: 'DELETE' }),
 
   listCollections: () => call<{ collections: Collection[] }>('/collections').then((r) => r.collections),
-  getCollection: (id: string) => call<{ collection: Collection; assets: Asset[] }>(`/collections?id=${encodeURIComponent(id)}`),
-  createCollection: (name: string, description?: string) =>
-    call<{ collection: Collection }>('/collections', { method: 'POST', body: JSON.stringify({ name, description }) }).then((r) => r.collection),
+  getCollection: (id: string) => call<{ collection: Collection; assets: Asset[]; children: Collection[]; parent: { id: string; name: string } | null }>(`/collections?id=${encodeURIComponent(id)}`),
+  createCollection: (name: string, description?: string, parentId?: string) =>
+    call<{ collection: Collection }>('/collections', { method: 'POST', body: JSON.stringify({ name, description, parent_id: parentId }) }).then((r) => r.collection),
+  updateCollection: (id: string, patch: { name?: string; description?: string; parent_id?: string | null }) =>
+    call<{ collection: Collection }>('/collections', { method: 'PATCH', body: JSON.stringify({ id, ...patch }) }).then((r) => r.collection),
   deleteCollection: (id: string) => call<{ ok: boolean }>(`/collections?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
   setCollectionCover: (id: string, coverAssetId: string | null) =>
     call<{ collection: Collection }>('/collections', { method: 'PATCH', body: JSON.stringify({ id, cover_asset_id: coverAssetId }) }).then((r) => r.collection),

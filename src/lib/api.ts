@@ -31,6 +31,24 @@ export const api = {
   },
   uploadAsset: (body: { filename: string; contentType: string; dataBase64: string; type?: AssetType; brand?: Brand; title?: string; tags?: string[] }) =>
     call<{ asset: Asset }>('/assets', { method: 'POST', body: JSON.stringify(body) }).then((r) => r.asset),
+  // Signed direct-to-storage upload — works for any file size/type (video, audio,
+  // design source files…), bypassing the function request limit.
+  uploadFile: async (file: File, opts: { type?: AssetType; brand?: Brand; tags?: string[] } = {}): Promise<Asset> => {
+    const sign = await call<{ uploadUrl: string; path: string; contentType: string }>('/assets', {
+      method: 'POST', body: JSON.stringify({ action: 'sign', filename: file.name, contentType: file.type, type: opts.type }),
+    });
+    const put = await fetch(sign.uploadUrl, {
+      method: 'PUT',
+      headers: { 'content-type': file.type || sign.contentType || 'application/octet-stream', 'x-upsert': 'true' },
+      body: file,
+    });
+    if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+    const reg = await call<{ asset: Asset }>('/assets', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'register', path: sign.path, filename: file.name, contentType: file.type, type: opts.type, brand: opts.brand, tags: opts.tags, sizeBytes: file.size }),
+    });
+    return reg.asset;
+  },
   importAssets: (urls: string[], type?: AssetType, brand?: Brand) =>
     call<{ imported: Asset[]; errorCount: number }>('/assets', { method: 'POST', body: JSON.stringify({ action: 'import', urls, type, brand }) }),
   migrateBucket: () => call<{ migrated: number }>('/assets', { method: 'POST', body: JSON.stringify({ action: 'migrate' }) }),

@@ -7,7 +7,8 @@ import {
 import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { ASSET_TYPES, BRANDS } from '../lib/types';
-import { api, fileToBase64, type AssetFilters } from '../lib/api';
+import { api, type AssetFilters } from '../lib/api';
+import { mediaKind, MEDIA_KINDS, MEDIA_META } from '../lib/media';
 import { AssetGrid } from '../components/AssetGrid';
 import { AssetTable } from '../components/AssetTable';
 import { AssetDialog } from '../components/AssetDialog';
@@ -34,6 +35,7 @@ export function LibraryPage() {
   const [brand, setBrand] = useState('');
   const [tag, setTag] = useState('');
   const [collection, setCollection] = useState('');
+  const [media, setMedia] = useState('');
   const [uploadType, setUploadType] = useState('other');
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -41,6 +43,12 @@ export function LibraryPage() {
   const [view, setView] = useState<'grid' | 'table'>('grid');
 
   const toggleSelect = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  // Merge a section table's selection into the global set without disturbing
+  // selections made in other sections.
+  const mergeSectionSelection = (items: Asset[], ids: string[]) => setSelected((prev) => {
+    const itemIds = new Set(items.map((a) => a.id));
+    return new Set([...[...prev].filter((id) => !itemIds.has(id)), ...ids]);
+  });
 
   const filters = useMemo<AssetFilters>(() => ({ q: q || undefined, type: type || undefined, brand: brand || undefined, tag: tag || undefined, collection: collection || undefined }), [q, type, brand, tag, collection]);
 
@@ -60,8 +68,7 @@ export function LibraryPage() {
     let ok = 0;
     try {
       for (const f of Array.from(files)) {
-        const dataBase64 = await fileToBase64(f);
-        await api.uploadAsset({ filename: f.name, contentType: f.type || 'application/octet-stream', dataBase64, type: uploadType as Asset['type'] });
+        await api.uploadFile(f, { type: uploadType as Asset['type'] });
         ok++;
       }
       toast(`Uploaded ${ok} asset${ok === 1 ? '' : 's'}.`); await load();
@@ -79,25 +86,43 @@ export function LibraryPage() {
     try { const r = await api.migrateBucket(); await load(); toast(`Imported ${r.migrated} existing bucket file${r.migrated === 1 ? '' : 's'}.`); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
-  async function shareActiveCollection() {
-    if (!collection) return;
+  async function shareCollection(id: string) {
     try {
-      const s = await api.createShare({ kind: 'collection', collectionId: collection, allowDownload: true });
+      const s = await api.createShare({ kind: 'collection', collectionId: id, allowDownload: true });
       await navigator.clipboard.writeText(`${location.origin}/s/${s.token}`);
       toast('Collection share link copied.');
     } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
   }
   const activeCollection = collections.find((c) => c.id === collection) || null;
 
-  const hasFilters = !!(q || type || brand || tag || collection);
-  const clearFilters = () => { setQ(''); setType(''); setBrand(''); setTag(''); setCollection(''); };
+  // Media-kind filter is applied client-side (derived from content type / extension).
+  const shownAssets = useMemo(
+    () => (media ? assets.filter((a) => mediaKind(a.content_type, a.filename) === media) : assets),
+    [assets, media],
+  );
+
+  // When viewing "All assets" (no single collection selected), group into
+  // sections per collection, plus an Uncategorized bucket. An asset in multiple
+  // collections appears under each.
+  const sections = useMemo(() => {
+    if (collection) return null;
+    const list = collections
+      .map((c) => ({ key: c.id, name: c.name, collection: c, items: shownAssets.filter((a) => (a.collections || []).some((ac) => ac.id === c.id)) }))
+      .filter((s) => s.items.length);
+    const uncategorized = shownAssets.filter((a) => !(a.collections || []).length);
+    if (uncategorized.length) list.push({ key: '_none', name: 'Uncategorized', collection: null as unknown as Collection, items: uncategorized });
+    return list;
+  }, [shownAssets, collections, collection]);
+
+  const hasFilters = !!(q || type || brand || tag || collection || media);
+  const clearFilters = () => { setQ(''); setType(''); setBrand(''); setTag(''); setCollection(''); setMedia(''); };
   const selectedIds = [...selected];
 
   return (
     <Stack spacing={2}>
       <PageHeader
         title="Library"
-        subtitle={`${assets.length} asset${assets.length === 1 ? '' : 's'}${hasFilters ? ' · filtered' : ''} · Alameda Soda + Brix`}
+        subtitle={`${shownAssets.length} asset${shownAssets.length === 1 ? '' : 's'}${hasFilters ? ' · filtered' : ''} · Alameda Soda + Brix`}
         actions={(
           <>
             <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -108,7 +133,7 @@ export function LibraryPage() {
             </FormControl>
             <Button component="label" variant="contained" startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Upload size={16} />} disabled={busy}>
               Upload
-              <input hidden type="file" multiple accept="image/*,application/pdf" onChange={(e) => { upload(e.target.files); e.currentTarget.value = ''; }} />
+              <input hidden type="file" multiple onChange={(e) => { upload(e.target.files); e.currentTarget.value = ''; }} />
             </Button>
             <Button variant="outlined" startIcon={<Globe size={16} />} onClick={() => setShowImport((v) => !v)}>Import URL</Button>
             {view === 'grid' && (
@@ -151,7 +176,7 @@ export function LibraryPage() {
           {activeCollection && (
             <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
               <Tooltip title="Copy a public share link for this collection">
-                <Button size="small" startIcon={<Share2 size={15} />} onClick={shareActiveCollection}>Share</Button>
+                <Button size="small" startIcon={<Share2 size={15} />} onClick={() => shareCollection(activeCollection.id)}>Share</Button>
               </Tooltip>
               <Tooltip title="Manage this collection">
                 <Button size="small" color="inherit" startIcon={<FolderOpen size={15} />} onClick={() => navigate(`/collections/${activeCollection.id}`)}>Manage</Button>
@@ -192,6 +217,8 @@ export function LibraryPage() {
             <Select label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)}><MenuItem value="">All brands</MenuItem>{BRANDS.map((b) => <MenuItem key={b} value={b} sx={{ textTransform: 'capitalize' }}>{b}</MenuItem>)}</Select></FormControl>
           <FormControl size="small" sx={{ minWidth: 140 }}><InputLabel>Tag</InputLabel>
             <Select label="Tag" value={tag} onChange={(e) => setTag(e.target.value)}><MenuItem value="">All tags</MenuItem>{tags.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.count})</MenuItem>)}</Select></FormControl>
+          <FormControl size="small" sx={{ minWidth: 140 }}><InputLabel>Media</InputLabel>
+            <Select label="Media" value={media} onChange={(e) => setMedia(e.target.value)}><MenuItem value="">All media</MenuItem>{MEDIA_KINDS.map((k) => <MenuItem key={k} value={k}>{MEDIA_META[k].label}</MenuItem>)}</Select></FormControl>
           {hasFilters && <Button size="small" color="inherit" startIcon={<X size={14} />} onClick={clearFilters}>Clear</Button>}
           <ToggleButtonGroup
             size="small" exclusive value={view}
@@ -206,7 +233,7 @@ export function LibraryPage() {
       {error && <Alert severity="warning" action={<Button size="small" onClick={load}>Retry</Button>}>{error}</Alert>}
 
       {loading ? <GridSkeleton />
-        : !assets.length ? (
+        : !shownAssets.length ? (
           <EmptyState
             icon={<Images size={28} />}
             title={hasFilters ? 'No assets match your filters' : 'Your brand library is empty'}
@@ -214,14 +241,35 @@ export function LibraryPage() {
             action={!hasFilters ? (
               <Button component="label" variant="contained" startIcon={<Upload size={16} />}>
                 Upload assets
-                <input hidden type="file" multiple accept="image/*,application/pdf" onChange={(e) => { upload(e.target.files); e.currentTarget.value = ''; }} />
+                <input hidden type="file" multiple onChange={(e) => { upload(e.target.files); e.currentTarget.value = ''; }} />
               </Button>
             ) : <Button variant="outlined" onClick={clearFilters}>Clear filters</Button>}
           />
+        ) : sections ? (
+          <Stack spacing={3}>
+            {sections.map((s) => (
+              <Box key={s.key}>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                  <Typography variant="subtitle1">{s.name}</Typography>
+                  <Chip size="small" variant="outlined" label={s.items.length} />
+                  {s.collection && (
+                    <>
+                      <Box sx={{ flex: 1 }} />
+                      <Button size="small" startIcon={<Share2 size={14} />} onClick={() => shareCollection(s.collection.id)}>Share</Button>
+                      <Button size="small" color="inherit" startIcon={<FolderOpen size={14} />} onClick={() => navigate(`/collections/${s.collection.id}`)}>Manage</Button>
+                    </>
+                  )}
+                </Stack>
+                {view === 'table'
+                  ? <AssetTable autoHeight assets={s.items} selected={selected} onSelectionChange={(ids) => mergeSectionSelection(s.items, ids)} onOpen={setOpen} />
+                  : <AssetGrid assets={s.items} onOpen={setOpen} selectable={selectMode} selected={selected} onToggleSelect={toggleSelect} />}
+              </Box>
+            ))}
+          </Stack>
         ) : view === 'table' ? (
-          <AssetTable assets={assets} selected={selected} onSelectionChange={(ids) => setSelected(new Set(ids))} onOpen={setOpen} />
+          <AssetTable assets={shownAssets} selected={selected} onSelectionChange={(ids) => setSelected(new Set(ids))} onOpen={setOpen} />
         ) : (
-          <AssetGrid assets={assets} onOpen={setOpen} selectable={selectMode} selected={selected} onToggleSelect={toggleSelect} />
+          <AssetGrid assets={shownAssets} onOpen={setOpen} selectable={selectMode} selected={selected} onToggleSelect={toggleSelect} />
         )}
 
       {(selectMode || view === 'table') && selectedIds.length > 0 && (

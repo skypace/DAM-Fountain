@@ -1,8 +1,7 @@
 import { Box, Chip, Paper, Stack, Typography } from '@mui/material';
-import { Check, FileText, Image as ImageIcon } from 'lucide-react';
+import { Check } from 'lucide-react';
 import type { Asset } from '../lib/types';
-
-const isPdf = (u: string) => /\.pdf($|\?)/i.test(u);
+import { mediaKind, MEDIA_META } from '../lib/media';
 
 export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect }: {
   assets: Asset[];
@@ -16,6 +15,8 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
       {assets.map((a) => {
         const isSel = !!(selectable && selected?.has(a.id));
         const act = () => (selectable && onToggleSelect ? onToggleSelect(a.id) : onOpen(a));
+        const kind = mediaKind(a.content_type, a.filename);
+        const KindIcon = MEDIA_META[kind].icon;
         return (
           <Paper
             key={a.id}
@@ -38,7 +39,14 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
             <Box sx={{ aspectRatio: '4 / 3', bgcolor: 'action.hover', display: 'grid', placeItems: 'center', position: 'relative' }}>
               {a.thumbnailUrl
                 ? <Box component="img" src={a.thumbnailUrl} alt={a.title || a.filename || ''} loading="lazy" sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                : (isPdf(a.url) ? <FileText size={30} opacity={0.5} /> : <ImageIcon size={30} opacity={0.5} />)}
+                : (
+                  <Stack alignItems="center" spacing={0.5} sx={{ color: MEDIA_META[kind].color }}>
+                    <KindIcon size={30} />
+                    <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', fontSize: 10 }}>
+                      {(a.filename || '').split('.').pop()?.slice(0, 5) || kind}
+                    </Typography>
+                  </Stack>
+                )}
               {isSel && (
                 <Box sx={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: '50%', bgcolor: 'primary.main', color: '#fff', display: 'grid', placeItems: 'center' }}>
                   <Check size={15} />
@@ -52,6 +60,7 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
               <Typography variant="body2" fontWeight={700} noWrap title={a.title || a.filename || ''}>{a.title || a.filename}</Typography>
               <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, minWidth: 0 }} alignItems="center">
                 <Chip size="small" variant="outlined" label={a.type} sx={{ height: 20, fontSize: 11 }} />
+                {kind !== 'image' && <Chip size="small" label={kind} sx={{ height: 20, fontSize: 11, bgcolor: `${MEDIA_META[kind].color}22`, color: MEDIA_META[kind].color, fontWeight: 700 }} />}
                 {a.brand !== 'shared' && <Chip size="small" variant="outlined" label={a.brand} sx={{ height: 20, fontSize: 11, textTransform: 'capitalize' }} />}
                 {a.tags.length > 0 && <Typography variant="caption" color="text.secondary" noWrap>· {a.tags.length} tag{a.tags.length === 1 ? '' : 's'}</Typography>}
               </Stack>

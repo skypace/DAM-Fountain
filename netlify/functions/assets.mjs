@@ -1,10 +1,19 @@
 import { preflight, json, requireRole } from './_shared/http.mjs';
-import { db, q, publicUrl, storagePut, storageDelete, storageList, BUCKET } from './_shared/supabase.mjs';
+import { db, q, publicUrl, storagePut, storageDelete, storageList, BUCKET, SUPABASE_URL, SERVICE_KEY } from './_shared/supabase.mjs';
 
 const TYPES = ['logo', 'can', 'equipment', 'hero', 'testimonial', 'sell-sheet', 'other'];
 const BRANDS = ['alameda', 'brix', 'shared'];
-const MIME_BY_EXT = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif', svg: 'image/svg+xml', pdf: 'application/pdf' };
-const ALLOWED_MIME = new Set(Object.values(MIME_BY_EXT));
+// Any file type is accepted (images, vector, design source, video, audio, docs,
+// archives, fonts…). This map only helps guess a content-type from an extension.
+const MIME_BY_EXT = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif', svg: 'image/svg+xml',
+  pdf: 'application/pdf', mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', m4v: 'video/x-m4v',
+  mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg',
+  ai: 'application/postscript', eps: 'application/postscript', psd: 'image/vnd.adobe.photoshop', zip: 'application/zip',
+  ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2',
+};
+// Function-relayed uploads (base64 / URL import) are capped by Netlify's request
+// limit; large media go through the signed direct-to-storage path instead.
 const MAX_BYTES = 25 * 1024 * 1024;
 
 function safeSeg(v, fallback) {
@@ -13,8 +22,12 @@ function safeSeg(v, fallback) {
 }
 function extFor(name, ct) {
   const fromName = String(name || '').match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
-  if (fromName && MIME_BY_EXT[fromName]) return fromName;
-  return Object.entries(MIME_BY_EXT).find(([, m]) => m === ct)?.[0] || 'png';
+  if (fromName) return fromName;
+  return Object.entries(MIME_BY_EXT).find(([, m]) => m === ct)?.[0] || 'bin';
+}
+function mimeFor(ext, ct) {
+  if (ct) return ct;
+  return MIME_BY_EXT[ext] || 'application/octet-stream';
 }
 function classify(name) {
   const v = String(name || '').toLowerCase();
@@ -32,9 +45,12 @@ const prettyName = (p) => (decodeURIComponent(String(p).split('/').pop() || p).r
 function shape(row) {
   return {
     ...row,
+    asset_tags: undefined,
+    collection_assets: undefined,
     url: publicUrl(row.storage_path),
     thumbnailUrl: isImg(row.storage_path) ? publicUrl(row.storage_path) : null,
     tags: (row.asset_tags || []).map((t) => t.tag).filter(Boolean),
+    collections: (row.collection_assets || []).map((c) => c.collection).filter(Boolean),
   };
 }
 
@@ -77,7 +93,7 @@ async function handleList(event) {
     if (!idFilter.length) return json({ assets: [] });
   }
 
-  const parts = ['select=*,asset_tags(tag:tags(id,name))', 'order=created_at.desc'];
+  const parts = ['select=*,asset_tags(tag:tags(id,name)),collection_assets(collection:collections(id,name))', 'order=created_at.desc'];
   if (idFilter) parts.push(`id=in.(${idFilter.join(',')})`);
   if (p.type && TYPES.includes(p.type)) parts.push(`type=eq.${q(p.type)}`);
   if (p.brand && BRANDS.includes(p.brand)) parts.push(`brand=eq.${q(p.brand)}`);
@@ -93,16 +109,17 @@ async function handleUpload(event, auth) {
   if (payload.action === 'import') return handleImport(payload, auth);
   if (payload.action === 'migrate') return handleMigrate(auth);
   if (payload.action === 'bulk') return handleBulk(payload);
+  if (payload.action === 'sign') return handleSign(payload);
+  if (payload.action === 'register') return handleRegister(payload, auth);
 
   const { filename, dataBase64, type, brand, title, description, tags } = payload;
   if (!dataBase64) return json({ error: 'dataBase64 is required' }, 400);
   const bytes = Buffer.from(String(dataBase64).replace(/^data:[^;]+;base64,/, ''), 'base64');
   if (!bytes.length) return json({ error: 'empty upload' }, 400);
-  if (bytes.length > MAX_BYTES) return json({ error: 'file exceeds 25MB' }, 413);
+  if (bytes.length > MAX_BYTES) return json({ error: 'file too large for direct upload — use the signed upload path' }, 413);
 
   const ext = extFor(filename, payload.contentType);
-  const ct = ALLOWED_MIME.has(payload.contentType) ? payload.contentType : MIME_BY_EXT[ext];
-  if (!ALLOWED_MIME.has(ct)) return json({ error: `unsupported type ${ct}` }, 415);
+  const ct = mimeFor(ext, payload.contentType);
   const folder = TYPES.includes(type) ? type : classify(filename);
   const objectPath = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${safeSeg(String(filename || '').replace(/\.[a-z0-9]+$/i, ''), 'asset')}.${ext}`;
   await storagePut(objectPath, bytes, ct);
@@ -136,7 +153,7 @@ async function handleImport(payload, auth) {
       if (!bytes.length || bytes.length > MAX_BYTES) { errors.push({ url, error: 'empty or too large' }); continue; }
       const name = decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).pop() || 'asset');
       const ext = extFor(name, ct);
-      const mime = ALLOWED_MIME.has(ct) ? ct : MIME_BY_EXT[ext];
+      const mime = mimeFor(ext, ct);
       const folder = TYPES.includes(payload.type) ? payload.type : classify(name);
       const objectPath = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${safeSeg(name.replace(/\.[a-z0-9]+$/i, ''), 'asset')}.${ext}`;
       await storagePut(objectPath, bytes, mime);
@@ -149,6 +166,42 @@ async function handleImport(payload, auth) {
     } catch (e) { errors.push({ url, error: e instanceof Error ? e.message : String(e) }); }
   }
   return json({ imported, errors, importedCount: imported.length, errorCount: errors.length }, imported.length ? 201 : 502);
+}
+
+// Signed direct-to-storage upload: the browser PUTs the file straight to Supabase
+// Storage (any size, bypassing the function's request limit), then calls
+// action:'register' to create the dam.assets row.
+async function handleSign(payload) {
+  const { filename, contentType, type } = payload;
+  if (!filename) return json({ error: 'filename required' }, 400);
+  const ext = extFor(filename, contentType);
+  const folder = TYPES.includes(type) ? type : classify(filename);
+  const objectPath = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${safeSeg(String(filename).replace(/\.[a-z0-9]+$/i, ''), 'asset')}.${ext}`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/upload/sign/${BUCKET}/${objectPath}`, {
+    method: 'POST',
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) return json({ error: `Could not create upload URL (${res.status})` }, 502);
+  const data = await res.json();
+  return json({ uploadUrl: `${SUPABASE_URL}/storage/v1${data.url}`, path: objectPath, contentType: mimeFor(ext, contentType) });
+}
+
+async function handleRegister(payload, auth) {
+  const { path, filename, contentType, type, brand, title, tags, sizeBytes } = payload;
+  if (!path) return json({ error: 'path required' }, 400);
+  const asset = await insertAsset({
+    storage_path: path,
+    filename: filename || path.split('/').pop(),
+    title: title || prettyName(path),
+    type: TYPES.includes(type) ? type : classify(filename || path),
+    brand: BRANDS.includes(brand) ? brand : 'shared',
+    bytes: sizeBytes != null ? Number(sizeBytes) : null,
+    content_type: contentType || mimeFor(extFor(filename || path, contentType)),
+    uploaded_by: auth.user.id,
+    uploaded_by_email: auth.email,
+  }, tags);
+  return json({ asset }, 201);
 }
 
 // One-time backfill: register any files already sitting in the brand-assets

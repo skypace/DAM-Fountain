@@ -27,6 +27,7 @@ export interface Asset {
   url: string;
   thumbnailUrl: string | null;
   tags: Tag[];
+  collections: { id: string; name: string }[];
 }
 
 export interface Collection {

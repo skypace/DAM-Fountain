@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Alert, Button, CircularProgress, FormControl, InputAdornment, InputLabel, Menu,
-  MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip,
+  Alert, Box, Button, Chip, CircularProgress, FormControl, InputAdornment, InputLabel, Menu,
+  MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
-import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon } from 'lucide-react';
+import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { ASSET_TYPES, BRANDS } from '../lib/types';
 import { api, fileToBase64, type AssetFilters } from '../lib/api';
@@ -17,6 +18,7 @@ import { useToast } from '../components/Toast';
 
 export function LibraryPage() {
   const toast = useToast();
+  const navigate = useNavigate();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -31,6 +33,7 @@ export function LibraryPage() {
   const [type, setType] = useState('');
   const [brand, setBrand] = useState('');
   const [tag, setTag] = useState('');
+  const [collection, setCollection] = useState('');
   const [uploadType, setUploadType] = useState('other');
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -39,7 +42,7 @@ export function LibraryPage() {
 
   const toggleSelect = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const filters = useMemo<AssetFilters>(() => ({ q: q || undefined, type: type || undefined, brand: brand || undefined, tag: tag || undefined }), [q, type, brand, tag]);
+  const filters = useMemo<AssetFilters>(() => ({ q: q || undefined, type: type || undefined, brand: brand || undefined, tag: tag || undefined, collection: collection || undefined }), [q, type, brand, tag, collection]);
 
   async function load() {
     setLoading(true); setError(null);
@@ -49,7 +52,7 @@ export function LibraryPage() {
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { const id = setTimeout(load, 250); return () => clearTimeout(id); }, [q, type, brand, tag]);
+  useEffect(() => { const id = setTimeout(load, 250); return () => clearTimeout(id); }, [q, type, brand, tag, collection]);
 
   async function upload(files: FileList | null) {
     if (!files?.length) return;
@@ -76,8 +79,18 @@ export function LibraryPage() {
     try { const r = await api.migrateBucket(); await load(); toast(`Imported ${r.migrated} existing bucket file${r.migrated === 1 ? '' : 's'}.`); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
+  async function shareActiveCollection() {
+    if (!collection) return;
+    try {
+      const s = await api.createShare({ kind: 'collection', collectionId: collection, allowDownload: true });
+      await navigator.clipboard.writeText(`${location.origin}/s/${s.token}`);
+      toast('Collection share link copied.');
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+  }
+  const activeCollection = collections.find((c) => c.id === collection) || null;
 
-  const hasFilters = !!(q || type || brand || tag);
+  const hasFilters = !!(q || type || brand || tag || collection);
+  const clearFilters = () => { setQ(''); setType(''); setBrand(''); setTag(''); setCollection(''); };
   const selectedIds = [...selected];
 
   return (
@@ -113,6 +126,47 @@ export function LibraryPage() {
         )}
       />
 
+      {collections.length > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', flex: 1, pb: 0.5, '&::-webkit-scrollbar': { height: 6 } }}>
+            <Chip
+              label="All assets"
+              clickable
+              onClick={() => setCollection('')}
+              color={collection === '' ? 'primary' : 'default'}
+              variant={collection === '' ? 'filled' : 'outlined'}
+            />
+            {collections.map((c) => (
+              <Chip
+                key={c.id}
+                label={typeof c.count === 'number' ? `${c.name} · ${c.count}` : c.name}
+                clickable
+                onClick={() => setCollection(c.id)}
+                color={collection === c.id ? 'primary' : 'default'}
+                variant={collection === c.id ? 'filled' : 'outlined'}
+                sx={{ flexShrink: 0 }}
+              />
+            ))}
+          </Stack>
+          {activeCollection && (
+            <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+              <Tooltip title="Copy a public share link for this collection">
+                <Button size="small" startIcon={<Share2 size={15} />} onClick={shareActiveCollection}>Share</Button>
+              </Tooltip>
+              <Tooltip title="Manage this collection">
+                <Button size="small" color="inherit" startIcon={<FolderOpen size={15} />} onClick={() => navigate(`/collections/${activeCollection.id}`)}>Manage</Button>
+              </Tooltip>
+            </Stack>
+          )}
+        </Box>
+      )}
+
+      {activeCollection && (
+        <Typography variant="body2" color="text.secondary">
+          Showing <b>{activeCollection.name}</b>{activeCollection.description ? ` — ${activeCollection.description}` : ''}
+        </Typography>
+      )}
+
       {showImport && (
         <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
           <Stack direction="row" spacing={1} alignItems="flex-start">
@@ -138,7 +192,7 @@ export function LibraryPage() {
             <Select label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)}><MenuItem value="">All brands</MenuItem>{BRANDS.map((b) => <MenuItem key={b} value={b} sx={{ textTransform: 'capitalize' }}>{b}</MenuItem>)}</Select></FormControl>
           <FormControl size="small" sx={{ minWidth: 140 }}><InputLabel>Tag</InputLabel>
             <Select label="Tag" value={tag} onChange={(e) => setTag(e.target.value)}><MenuItem value="">All tags</MenuItem>{tags.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.count})</MenuItem>)}</Select></FormControl>
-          {hasFilters && <Button size="small" color="inherit" startIcon={<X size={14} />} onClick={() => { setQ(''); setType(''); setBrand(''); setTag(''); }}>Clear</Button>}
+          {hasFilters && <Button size="small" color="inherit" startIcon={<X size={14} />} onClick={clearFilters}>Clear</Button>}
           <ToggleButtonGroup
             size="small" exclusive value={view}
             onChange={(_, v) => { if (v) { setView(v); setSelectMode(false); setSelected(new Set()); } }}
@@ -162,7 +216,7 @@ export function LibraryPage() {
                 Upload assets
                 <input hidden type="file" multiple accept="image/*,application/pdf" onChange={(e) => { upload(e.target.files); e.currentTarget.value = ''; }} />
               </Button>
-            ) : <Button variant="outlined" onClick={() => { setQ(''); setType(''); setBrand(''); setTag(''); }}>Clear filters</Button>}
+            ) : <Button variant="outlined" onClick={clearFilters}>Clear filters</Button>}
           />
         ) : view === 'table' ? (
           <AssetTable assets={assets} selected={selected} onSelectionChange={(ids) => setSelected(new Set(ids))} onOpen={setOpen} />

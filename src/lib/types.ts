@@ -36,6 +36,7 @@ export interface Collection {
   slug: string;
   description: string | null;
   cover_asset_id: string | null;
+  coverUrl?: string | null;
   count?: number;
   created_at: string;
 }

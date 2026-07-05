@@ -4,18 +4,40 @@ import { db, q, publicUrl } from './_shared/supabase.mjs';
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || `c-${Date.now()}`;
 const isImg = (p) => /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(p || '');
 function shapeAsset(row) {
-  return { ...row, url: publicUrl(row.storage_path), thumbnailUrl: isImg(row.storage_path) ? publicUrl(row.storage_path) : null, tags: (row.asset_tags || []).map((t) => t.tag).filter(Boolean) };
+  return {
+    ...row,
+    asset_tags: undefined,
+    collection_assets: undefined,
+    url: publicUrl(row.storage_path),
+    thumbnailUrl: isImg(row.storage_path) ? publicUrl(row.storage_path) : null,
+    tags: (row.asset_tags || []).map((t) => t.tag).filter(Boolean),
+    collections: (row.collection_assets || []).map((c) => c.collection).filter(Boolean),
+  };
 }
 
 async function list() {
   const rows = await db('GET', 'collections?select=*,collection_assets(count)&order=created_at.desc');
-  return json({ collections: rows.map((c) => ({ ...c, count: c.collection_assets?.[0]?.count ?? 0, collection_assets: undefined })) });
+  // Resolve the public URL of each collection's chosen cover image in one query.
+  const coverIds = [...new Set(rows.map((c) => c.cover_asset_id).filter(Boolean))];
+  const coverUrl = new Map();
+  if (coverIds.length) {
+    const covers = await db('GET', `assets?id=in.(${coverIds.map(q).join(',')})&select=id,storage_path`);
+    for (const a of covers) coverUrl.set(a.id, isImg(a.storage_path) ? publicUrl(a.storage_path) : null);
+  }
+  return json({
+    collections: rows.map((c) => ({
+      ...c,
+      count: c.collection_assets?.[0]?.count ?? 0,
+      coverUrl: c.cover_asset_id ? coverUrl.get(c.cover_asset_id) || null : null,
+      collection_assets: undefined,
+    })),
+  });
 }
 
 async function detail(id) {
   const rows = await db('GET', `collections?id=eq.${q(id)}&select=*`);
   if (!rows.length) return json({ error: 'not found' }, 404);
-  const links = await db('GET', `collection_assets?collection_id=eq.${q(id)}&select=sort_order,asset:assets(*,asset_tags(tag:tags(id,name)))&order=sort_order.asc`);
+  const links = await db('GET', `collection_assets?collection_id=eq.${q(id)}&select=sort_order,asset:assets(*,asset_tags(tag:tags(id,name)),collection_assets(collection:collections(id,name)))&order=sort_order.asc`);
   const assets = links.map((l) => shapeAsset(l.asset)).filter(Boolean);
   return json({ collection: rows[0], assets });
 }

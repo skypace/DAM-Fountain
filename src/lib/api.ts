@@ -65,6 +65,8 @@ export const api = {
   createCollection: (name: string, description?: string) =>
     call<{ collection: Collection }>('/collections', { method: 'POST', body: JSON.stringify({ name, description }) }).then((r) => r.collection),
   deleteCollection: (id: string) => call<{ ok: boolean }>(`/collections?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  setCollectionCover: (id: string, coverAssetId: string | null) =>
+    call<{ collection: Collection }>('/collections', { method: 'PATCH', body: JSON.stringify({ id, cover_asset_id: coverAssetId }) }).then((r) => r.collection),
   addToCollection: (collectionId: string, assetIds: string[]) =>
     call<{ ok: boolean }>('/collections', { method: 'POST', body: JSON.stringify({ action: 'add', collectionId, assetIds }) }),
   removeFromCollection: (collectionId: string, assetIds: string[]) =>

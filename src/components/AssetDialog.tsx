@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import {
-  Autocomplete, Box, Button, Chip, Dialog, DialogContent, Divider, FormControl, InputLabel,
-  MenuItem, Select, Stack, TextField, Typography,
+  Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogContent, Divider, FormControl,
+  FormControlLabel, InputLabel, MenuItem, Select, Stack, TextField, Typography,
 } from '@mui/material';
-import { Copy, Download, Trash2, Share2 } from 'lucide-react';
+import { Copy, Download, Trash2, Share2, Image as ImageIcon } from 'lucide-react';
 import type { Asset, Collection } from '../lib/types';
 import { ASSET_TYPES, BRANDS, STATUSES } from '../lib/types';
 import { api } from '../lib/api';
+import { MediaPreview } from './MediaPreview';
 import { useToast } from './Toast';
 
 const SHARE_BASE = `${location.origin}/s/`;
@@ -29,6 +30,19 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
   const [collectionId, setCollectionId] = useState('');
   const [busy, setBusy] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  // Which of this asset's collections currently use it as their cover image.
+  const [coverIds, setCoverIds] = useState<Set<string>>(
+    () => new Set(collections.filter((c) => c.cover_asset_id === asset.id).map((c) => c.id)),
+  );
+
+  async function toggleCover(colId: string, checked: boolean) {
+    setBusy(true);
+    try {
+      await api.setCollectionCover(colId, checked ? asset.id : null);
+      setCoverIds((prev) => { const n = new Set(prev); if (checked) n.add(colId); else n.delete(colId); return n; });
+      toast(checked ? 'Set as collection cover.' : 'Cover removed.');
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
 
   async function save() {
     setBusy(true);
@@ -60,10 +74,8 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
     <Dialog open onClose={onClose} maxWidth="md" fullWidth>
       <DialogContent>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-          <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, display: 'grid', placeItems: 'center', minHeight: 260, p: 2 }}>
-            {asset.thumbnailUrl
-              ? <Box component="img" src={asset.thumbnailUrl} alt={asset.title || ''} sx={{ maxWidth: '100%', maxHeight: 360, objectFit: 'contain' }} />
-              : <Typography variant="h3">📄</Typography>}
+          <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, display: 'grid', placeItems: 'center', minHeight: 260, overflow: 'hidden', p: 1 }}>
+            <MediaPreview url={asset.url} filename={asset.filename} contentType={asset.content_type} variant="full" alt={asset.title || ''} />
           </Box>
           <Stack spacing={1.5}>
             <TextField size="small" label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -107,6 +119,24 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
           <Button size="small" onClick={addToCollection} disabled={busy || !collectionId}>Add</Button>
           <Button size="small" color="error" startIcon={<Trash2 size={15} />} onClick={del} disabled={busy}>Delete</Button>
         </Stack>
+        {asset.thumbnailUrl && (asset.collections?.length ?? 0) > 0 && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
+              <ImageIcon size={15} />
+              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>Use as collection cover</Typography>
+            </Stack>
+            <Stack direction="row" flexWrap="wrap" useFlexGap>
+              {(asset.collections || []).map((col) => (
+                <FormControlLabel
+                  key={col.id}
+                  control={<Checkbox size="small" checked={coverIds.has(col.id)} disabled={busy} onChange={(e) => toggleCover(col.id, e.target.checked)} />}
+                  label={col.name}
+                />
+              ))}
+            </Stack>
+          </>
+        )}
         {shareUrl && (
           <Stack direction="row" spacing={1} sx={{ mt: 1.5 }} alignItems="center">
             <TextField size="small" fullWidth value={shareUrl} InputProps={{ readOnly: true }} />

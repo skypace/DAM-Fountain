@@ -2,6 +2,7 @@ import { Box, Chip, Paper, Stack, Typography } from '@mui/material';
 import { Check } from 'lucide-react';
 import type { Asset } from '../lib/types';
 import { mediaKind, MEDIA_META } from '../lib/media';
+import { MediaPreview } from './MediaPreview';
 
 export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect }: {
   assets: Asset[];
@@ -16,7 +17,6 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
         const isSel = !!(selectable && selected?.has(a.id));
         const act = () => (selectable && onToggleSelect ? onToggleSelect(a.id) : onOpen(a));
         const kind = mediaKind(a.content_type, a.filename);
-        const KindIcon = MEDIA_META[kind].icon;
         return (
           <Paper
             key={a.id}
@@ -37,16 +37,10 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
             }}
           >
             <Box sx={{ aspectRatio: '4 / 3', bgcolor: 'action.hover', display: 'grid', placeItems: 'center', position: 'relative' }}>
-              {a.thumbnailUrl
-                ? <Box component="img" src={a.thumbnailUrl} alt={a.title || a.filename || ''} loading="lazy" sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                : (
-                  <Stack alignItems="center" spacing={0.5} sx={{ color: MEDIA_META[kind].color }}>
-                    <KindIcon size={30} />
-                    <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', fontSize: 10 }}>
-                      {(a.filename || '').split('.').pop()?.slice(0, 5) || kind}
-                    </Typography>
-                  </Stack>
-                )}
+              <MediaPreview url={a.url} filename={a.filename} contentType={a.content_type} variant="thumb" alt={a.title || a.filename || ''} />
+              {kind === 'video' && (
+                <Box sx={{ position: 'absolute', bottom: 6, left: 6, px: 0.75, py: 0.25, borderRadius: 1, bgcolor: 'rgba(0,0,0,.6)', color: '#fff', fontSize: 10, fontWeight: 700 }}>▶ VIDEO</Box>
+              )}
               {isSel && (
                 <Box sx={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: '50%', bgcolor: 'primary.main', color: '#fff', display: 'grid', placeItems: 'center' }}>
                   <Check size={15} />

@@ -4,6 +4,7 @@ import {
   Box, Button, CircularProgress, Container, Paper, Stack, TextField, Typography,
 } from '@mui/material';
 import { Download } from 'lucide-react';
+import { MediaPreview } from '../components/MediaPreview';
 
 interface ShareAsset { id: string; title: string | null; filename: string | null; type: string; url: string; thumbnailUrl: string | null }
 interface ShareMeta { title: string; kind: string; allow_download: boolean }
@@ -78,8 +79,8 @@ export function SharePublicPage() {
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 2 }}>
                 {assets.map((a) => (
                   <Paper key={a.id} variant="outlined" sx={{ overflow: 'hidden' }}>
-                    <Box sx={{ aspectRatio: '4 / 3', bgcolor: 'action.hover', display: 'grid', placeItems: 'center' }}>
-                      {a.thumbnailUrl ? <Box component="img" src={a.thumbnailUrl} alt={a.title || ''} sx={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <Typography variant="h4">📄</Typography>}
+                    <Box sx={{ aspectRatio: '4 / 3', bgcolor: 'action.hover', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+                      <MediaPreview url={a.url} filename={a.filename} variant="thumb" alt={a.title || ''} />
                     </Box>
                     <Stack sx={{ p: 1.25 }} spacing={0.75}>
                       <Typography variant="body2" fontWeight={700} noWrap title={a.title || ''}>{a.title || a.filename}</Typography>

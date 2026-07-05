@@ -1,0 +1,11 @@
+[build]
+  command = "npm install && npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+# SPA fallback — all non-asset, non-function routes serve index.html so the
+# client router (incl. /s/:token public share pages) works on hard refresh.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

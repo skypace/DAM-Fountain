@@ -31,7 +31,7 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
               borderColor: isSel ? 'primary.main' : 'divider', borderWidth: isSel ? 2 : 1,
               transition: 'transform .18s ease, box-shadow .18s ease, border-color .18s ease',
               '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
-              '&:hover': { borderColor: 'primary.main', transform: 'translateY(-3px)', boxShadow: '0 12px 28px rgba(0,0,0,.35)' },
+              '&:hover': { borderColor: 'primary.main', transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(15,23,42,.12)' },
               '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
             }}
           >

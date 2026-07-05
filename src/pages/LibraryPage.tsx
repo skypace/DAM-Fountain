@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Button, CircularProgress, FormControl, InputAdornment, InputLabel, Menu,
-  MenuItem, Paper, Select, Stack, TextField,
+  MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip,
 } from '@mui/material';
-import { Upload, Globe, Download, Search, Images, MoreVertical, X } from 'lucide-react';
+import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { ASSET_TYPES, BRANDS } from '../lib/types';
 import { api, fileToBase64, type AssetFilters } from '../lib/api';
 import { AssetGrid } from '../components/AssetGrid';
+import { AssetTable } from '../components/AssetTable';
 import { AssetDialog } from '../components/AssetDialog';
 import { PageHeader } from '../components/PageHeader';
 import { EmptyState, GridSkeleton } from '../components/EmptyState';
@@ -34,9 +35,9 @@ export function LibraryPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [view, setView] = useState<'grid' | 'table'>('grid');
 
   const toggleSelect = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const clearSelection = () => { setSelected(new Set()); setSelectMode(false); };
 
   const filters = useMemo<AssetFilters>(() => ({ q: q || undefined, type: type || undefined, brand: brand || undefined, tag: tag || undefined }), [q, type, brand, tag]);
 
@@ -97,9 +98,11 @@ export function LibraryPage() {
               <input hidden type="file" multiple accept="image/*,application/pdf" onChange={(e) => { upload(e.target.files); e.currentTarget.value = ''; }} />
             </Button>
             <Button variant="outlined" startIcon={<Globe size={16} />} onClick={() => setShowImport((v) => !v)}>Import URL</Button>
-            <Button variant={selectMode ? 'contained' : 'outlined'} color="secondary" onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}>
-              {selectMode ? 'Done' : 'Select'}
-            </Button>
+            {view === 'grid' && (
+              <Button variant={selectMode ? 'contained' : 'outlined'} color="secondary" onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}>
+                {selectMode ? 'Done' : 'Select'}
+              </Button>
+            )}
             <Button variant="text" sx={{ minWidth: 0, px: 1 }} onClick={(e) => setMenuAnchor(e.currentTarget)} aria-label="More actions"><MoreVertical size={18} /></Button>
             <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
               <MenuItem disabled={busy} onClick={() => { setMenuAnchor(null); migrate(); }}>
@@ -136,6 +139,13 @@ export function LibraryPage() {
           <FormControl size="small" sx={{ minWidth: 140 }}><InputLabel>Tag</InputLabel>
             <Select label="Tag" value={tag} onChange={(e) => setTag(e.target.value)}><MenuItem value="">All tags</MenuItem>{tags.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.count})</MenuItem>)}</Select></FormControl>
           {hasFilters && <Button size="small" color="inherit" startIcon={<X size={14} />} onClick={() => { setQ(''); setType(''); setBrand(''); setTag(''); }}>Clear</Button>}
+          <ToggleButtonGroup
+            size="small" exclusive value={view}
+            onChange={(_, v) => { if (v) { setView(v); setSelectMode(false); setSelected(new Set()); } }}
+          >
+            <ToggleButton value="grid" aria-label="Grid view"><Tooltip title="Grid"><LayoutGrid size={16} /></Tooltip></ToggleButton>
+            <ToggleButton value="table" aria-label="Table view"><Tooltip title="Table"><TableIcon size={16} /></Tooltip></ToggleButton>
+          </ToggleButtonGroup>
         </Stack>
       </Paper>
 
@@ -154,17 +164,19 @@ export function LibraryPage() {
               </Button>
             ) : <Button variant="outlined" onClick={() => { setQ(''); setType(''); setBrand(''); setTag(''); }}>Clear filters</Button>}
           />
+        ) : view === 'table' ? (
+          <AssetTable assets={assets} selected={selected} onSelectionChange={(ids) => setSelected(new Set(ids))} onOpen={setOpen} />
         ) : (
           <AssetGrid assets={assets} onOpen={setOpen} selectable={selectMode} selected={selected} onToggleSelect={toggleSelect} />
         )}
 
-      {selectMode && selectedIds.length > 0 && (
+      {(selectMode || view === 'table') && selectedIds.length > 0 && (
         <BulkActionBar
           ids={selectedIds}
           assets={assets}
           collections={collections}
-          onDone={() => { clearSelection(); load(); }}
-          onClear={clearSelection}
+          onDone={() => { setSelected(new Set()); load(); }}
+          onClear={() => setSelected(new Set())}
         />
       )}
 

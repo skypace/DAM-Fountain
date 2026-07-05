@@ -2,7 +2,13 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CssBaseline, ThemeProvider } from '@mui/material';
+import { LicenseInfo } from '@mui/x-license';
 import { theme } from './theme';
+
+// MUI X Pro license (same key as the Margin app). Without it the DataGrid shows
+// a watermark but still works.
+const muiLicense = import.meta.env.VITE_MUI_X_LICENSE as string | undefined;
+if (muiLicense) LicenseInfo.setLicenseKey(muiLicense);
 import { AppShell } from './components/AppShell';
 import { AuthGate } from './components/AuthGate';
 import { LibraryPage } from './pages/LibraryPage';

@@ -19,8 +19,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <ToastProvider>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '232px 1fr' }, minHeight: '100vh' }}>
-        <Box sx={{ borderRight: '1px solid', borderColor: 'divider', p: 2, display: { xs: 'none', md: 'block' }, position: 'sticky', top: 0, height: '100vh' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '236px 1fr' }, minHeight: '100vh', bgcolor: 'background.default' }}>
+        <Box sx={{ borderRight: '1px solid', borderColor: 'divider', p: 2, display: { xs: 'none', md: 'block' }, position: 'sticky', top: 0, height: '100vh', bgcolor: '#fafbfc' }}>
           <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 3 }}>
             <Box component="img" src="/fountain-icon.png" alt="Fountain DAM" sx={{ width: 40, height: 40, borderRadius: 2, display: 'block' }} />
             <Box>

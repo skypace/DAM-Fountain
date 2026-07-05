@@ -39,7 +39,7 @@ export function BulkActionBar({ ids, assets, collections, onDone, onClear }: {
       sx={{
         position: 'sticky', bottom: 16, mt: 2, p: 1.25, borderRadius: 3, border: '1px solid', borderColor: 'primary.main',
         display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', zIndex: 20,
-        boxShadow: '0 12px 34px rgba(0,0,0,.45)',
+        boxShadow: '0 10px 30px rgba(15,23,42,.16)', bgcolor: 'background.paper',
       }}
     >
       <Chip color="primary" label={`${ids.length} selected`} sx={{ fontWeight: 700 }} />

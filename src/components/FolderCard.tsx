@@ -82,14 +82,19 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged, sortable, 
         '&:hover': { borderColor: 'primary.main', boxShadow: '0 10px 24px rgba(15,23,42,.12)' },
       }}
     >
-      <Box sx={{ position: 'relative', aspectRatio: '16 / 9', display: 'grid', placeItems: 'stretch', overflow: 'hidden', p: c.cover && coverFit === 'contain' ? 1 : 0, ...(c.cover ? previewBgSx(bgFor(c.id)) : { bgcolor: 'action.hover' }) }}>
+      <Box sx={{ position: 'relative', aspectRatio: '16 / 9', overflow: 'hidden', ...(c.cover ? previewBgSx(bgFor(c.id)) : { bgcolor: 'action.hover' }) }}>
         {busy ? (
-          <Stack alignItems="center" justifyContent="center" spacing={0.5}>
+          <Stack alignItems="center" justifyContent="center" spacing={0.5} sx={{ position: 'absolute', inset: 0 }}>
             <CircularProgress size={22} variant={pct === null ? 'indeterminate' : 'determinate'} value={pct ?? 0} />
             {pct !== null && <Typography variant="caption" color="text.secondary">{pct}%</Typography>}
           </Stack>
-        ) : c.cover ? <Box sx={{ width: '100%', height: '100%', pointerEvents: 'none' }}><MediaPreview url={c.cover.url} filename={c.cover.filename} contentType={c.cover.content_type} variant="thumb" alt={c.name} fit={coverFit} /></Box>
-          : <Box sx={{ display: 'grid', placeItems: 'center', width: '100%', height: '100%' }}><FolderOpen size={28} opacity={0.4} /></Box>}
+        ) : c.cover ? (
+          // Absolutely-positioned box gives object-fit a definite box to crop
+          // into, so "Fill folder (crop)" actually fills + crops.
+          <Box sx={{ position: 'absolute', inset: coverFit === 'contain' ? '8px' : 0, pointerEvents: 'none' }}>
+            <MediaPreview url={c.cover.url} filename={c.cover.filename} contentType={c.cover.content_type} variant="thumb" alt={c.name} fit={coverFit} />
+          </Box>
+        ) : <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}><FolderOpen size={28} opacity={0.4} /></Box>}
         {c.cover && (
           <Tooltip title="Folder background">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); setBgMenu(e.currentTarget); }}

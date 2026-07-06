@@ -12,6 +12,7 @@ import { useTypes } from '../lib/useTypes';
 import { useBrandScope } from '../lib/brandScope';
 import { usePreviewBg } from '../lib/previewBg';
 import { dtHasFiles, readAssetIds, readDropped, uploadDroppedTree } from '../lib/dnd';
+import { getRecents } from '../lib/recents';
 import { mediaKind, MEDIA_KINDS, MEDIA_META } from '../lib/media';
 import { AssetGrid } from '../components/AssetGrid';
 import { AssetTable } from '../components/AssetTable';
@@ -211,6 +212,13 @@ export function LibraryPage() {
     return list;
   }, [shownAssets, collections, collection]);
 
+  // Landing rails (shown before any search): newest uploads + recently viewed.
+  const recentlyAdded = useMemo(() => [...assets].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 12), [assets]);
+  const recentlyViewed = useMemo(() => {
+    const byId = new Map(assets.map((a) => [a.id, a]));
+    return getRecents().map((id) => byId.get(id)).filter(Boolean).slice(0, 12) as Asset[];
+  }, [assets]);
+
   const hasFilters = !!(q || type || brand || tag || collection || media);
   // Nothing is shown until the operator searches or narrows down — a search /
   // filter / collection / brand scope / tag / media / type must be active.
@@ -391,11 +399,25 @@ export function LibraryPage() {
       {error && <Alert severity="warning" action={<Button size="small" onClick={load}>Retry</Button>}>{error}</Alert>}
 
       {!browsing ? (
-        <EmptyState
-          icon={<Search size={28} />}
-          title="Search or pick a folder to begin"
-          description="Type in the search box, choose a brand in the sidebar, or select a collection, type, or tag above. Results appear once you narrow down."
-        />
+        <Stack spacing={3}>
+          <EmptyState
+            icon={<Search size={28} />}
+            title="Search or pick a folder to begin"
+            description="Search above (or press ⌘K), choose a brand in the sidebar, or select a collection, type, or tag. Your recent items are below."
+          />
+          {recentlyViewed.length > 0 && (
+            <Box>
+              <Typography variant="subtitle1" sx={{ mb: 1 }}>Recently viewed</Typography>
+              <AssetGrid assets={recentlyViewed} onOpen={setOpen} />
+            </Box>
+          )}
+          {recentlyAdded.length > 0 && (
+            <Box>
+              <Typography variant="subtitle1" sx={{ mb: 1 }}>Recently added</Typography>
+              <AssetGrid assets={recentlyAdded} onOpen={setOpen} />
+            </Box>
+          )}
+        </Stack>
       ) : loading ? <GridSkeleton />
         : !shownAssets.length ? (
           <EmptyState

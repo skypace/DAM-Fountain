@@ -1,5 +1,5 @@
-import { Box, Chip, Paper, Stack, Typography } from '@mui/material';
-import { Check } from 'lucide-react';
+import { Box, Chip, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { Check, Link2, Download } from 'lucide-react';
 import type { Asset } from '../lib/types';
 import { mediaKind, MEDIA_META } from '../lib/media';
 import { ASSET_MIME } from '../lib/dnd';
@@ -46,11 +46,22 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
               transition: 'transform .18s ease, box-shadow .18s ease, border-color .18s ease',
               '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
               '&:hover': { borderColor: 'primary.main', transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(15,23,42,.12)' },
+              '&:hover .asset-actions': { opacity: 1 },
               '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
             }}
           >
             <Box sx={{ aspectRatio: '4 / 3', display: 'grid', placeItems: 'center', position: 'relative', p: usesBg ? 1 : 0, ...(usesBg ? previewBgSx(bgFor(a.id)) : { bgcolor: 'action.hover' }) }}>
               <MediaPreview url={a.url} filename={a.filename} contentType={a.content_type} variant="thumb" alt={a.title || a.filename || ''} />
+              {!selectable && (
+                <Stack direction="row" spacing={0.5} className="asset-actions" sx={{ position: 'absolute', top: 6, right: 6, opacity: 0, transition: 'opacity .15s' }}>
+                  <Tooltip title="Copy link">
+                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigator.clipboard?.writeText(a.url); }} sx={{ bgcolor: 'rgba(255,255,255,.9)', '&:hover': { bgcolor: '#fff' }, width: 26, height: 26 }}><Link2 size={13} /></IconButton>
+                  </Tooltip>
+                  <Tooltip title="Download">
+                    <IconButton size="small" component="a" href={a.url} download={a.filename || undefined} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()} sx={{ bgcolor: 'rgba(255,255,255,.9)', '&:hover': { bgcolor: '#fff' }, width: 26, height: 26 }}><Download size={13} /></IconButton>
+                  </Tooltip>
+                </Stack>
+              )}
               {kind === 'video' && (
                 <Box sx={{ position: 'absolute', bottom: 6, left: 6, px: 0.75, py: 0.25, borderRadius: 1, bgcolor: 'rgba(0,0,0,.6)', color: '#fff', fontSize: 10, fontWeight: 700 }}>▶ VIDEO</Box>
               )}

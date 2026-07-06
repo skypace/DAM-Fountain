@@ -3,6 +3,10 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# Ongoing AI tagging of newly-uploaded images (also HTTP-callable for backfill).
+[functions."ai-tag-cron"]
+  schedule = "*/15 * * * *"
+
 # SPA fallback — all non-asset, non-function routes serve index.html so the
 # client router (incl. /s/:token public share pages) works on hard refresh.
 [[redirects]]

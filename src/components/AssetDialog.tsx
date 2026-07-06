@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogContent, Divider, FormControl,
   FormControlLabel, InputLabel, MenuItem, Select, Stack, TextField, Typography,
@@ -10,6 +10,7 @@ import { useBrands } from '../lib/useBrands';
 import { useTypes } from '../lib/useTypes';
 import { api } from '../lib/api';
 import { usePreviewBg, previewBgSx, setItemBg, getItemBg, PREVIEW_BGS, PREVIEW_BG_LABEL } from '../lib/previewBg';
+import { pushRecent } from '../lib/recents';
 import { MediaPreview } from './MediaPreview';
 import { useToast } from './Toast';
 
@@ -32,6 +33,7 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
   const { types: typeList, addType } = useTypes();
   const [, , bgFor] = usePreviewBg();
   const [, bgTick] = useState(0);
+  useEffect(() => { pushRecent(asset.id); }, [asset.id]);
   const [status, setStatus] = useState(asset.status);
   const [tags, setTags] = useState<string[]>(asset.tags.map((t) => t.name));
   const [collectionId, setCollectionId] = useState('');

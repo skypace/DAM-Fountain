@@ -105,6 +105,7 @@ export const api = {
   updateCollection: (id: string, patch: { name?: string; description?: string; parent_id?: string | null }) =>
     call<{ collection: Collection }>('/collections', { method: 'PATCH', body: JSON.stringify({ id, ...patch }) }).then((r) => r.collection),
   deleteCollection: (id: string) => call<{ ok: boolean }>(`/collections?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  reorderCollections: (ids: string[]) => call<{ ok: boolean }>('/collections', { method: 'POST', body: JSON.stringify({ action: 'reorder', ids }) }),
   setCollectionCover: (id: string, coverAssetId: string | null) =>
     call<{ collection: Collection }>('/collections', { method: 'PATCH', body: JSON.stringify({ id, cover_asset_id: coverAssetId }) }).then((r) => r.collection),
   addToCollection: (collectionId: string, assetIds: string[]) =>

@@ -60,6 +60,7 @@ export interface Collection {
   cover?: { url: string; filename: string | null; content_type: string | null } | null;
   count?: number;
   subfolderCount?: number;
+  sort_order?: number;
   created_at: string;
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Box, CircularProgress, IconButton, Menu, MenuItem, Paper, Stack, Tooltip, Typography } from '@mui/material';
-import { FolderOpen, Trash2, Palette, Check } from 'lucide-react';
+import { FolderOpen, Trash2, Palette, Check, GripVertical } from 'lucide-react';
 import type { Collection } from '../lib/types';
 import { api } from '../lib/api';
 import { dtHasFiles, readAssetIds, readFolderId, readDropped, uploadDroppedTree } from '../lib/dnd';
@@ -11,11 +11,15 @@ import { useToast } from './Toast';
 // A collection tile that is both a drag source (drag it onto another folder to
 // nest it) and a drop target: drop assets to move them in, drop a folder to nest
 // it, or drop files/folders from the desktop to upload into it.
-export function FolderCard({ collection, onOpen, onDelete, onChanged }: {
+const REORDER_MIME = 'application/x-fountain-reorder';
+
+export function FolderCard({ collection, onOpen, onDelete, onChanged, sortable, onReorder }: {
   collection: Collection;
   onOpen: (id: string) => void;
   onDelete?: (c: Collection) => void;
   onChanged: () => void;
+  sortable?: boolean;
+  onReorder?: (draggedId: string, targetId: string) => void;
 }) {
   const toast = useToast();
   const c = collection;
@@ -38,8 +42,11 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged }: {
     e.preventDefault(); e.stopPropagation(); setOver(false);
     const dt = e.dataTransfer;
     const isFiles = dtHasFiles(dt);
+    const reorderId = isFiles ? '' : dt.getData(REORDER_MIME);
     const assetIds = isFiles ? [] : readAssetIds(dt);
     const folderId = isFiles ? null : readFolderId(dt);
+    // A reorder drag (from the grip) takes precedence over nesting.
+    if (reorderId && onReorder) { if (reorderId !== c.id) onReorder(reorderId, c.id); return; }
     try {
       if (isFiles) {
         setBusy(true);
@@ -103,7 +110,20 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged }: {
         </Menu>
       </Box>
       <Box sx={{ p: 1.25 }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" alignItems="center" spacing={0.5}>
+          {sortable && (
+            <Tooltip title="Drag to reorder">
+              <Box
+                component="span"
+                draggable
+                onClick={(e) => e.stopPropagation()}
+                onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData(REORDER_MIME, c.id); e.dataTransfer.effectAllowed = 'move'; }}
+                sx={{ display: 'inline-flex', cursor: 'grab', color: 'text.disabled', '&:active': { cursor: 'grabbing' }, '&:hover': { color: 'text.secondary' } }}
+              >
+                <GripVertical size={15} />
+              </Box>
+            </Tooltip>
+          )}
           <Typography variant="body2" noWrap sx={{ flex: 1, fontWeight: 600 }}>{c.name}</Typography>
           {onDelete && <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(c); }}><Trash2 size={14} /></IconButton>}
         </Stack>

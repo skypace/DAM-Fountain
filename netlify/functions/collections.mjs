@@ -67,7 +67,7 @@ const shapeCollection = (c, covers, autoCovers, extra = {}) => {
 };
 
 async function list() {
-  const rows = await db('GET', 'collections?select=*,collection_assets(count)&order=created_at.desc');
+  const rows = await db('GET', 'collections?select=*,collection_assets(count)&order=sort_order.asc,created_at.desc');
   const [covers, autoCovers] = await Promise.all([coverMapFor(rows), autoCoverMapFor(rows)]);
   const subfolderCount = new Map();
   for (const c of rows) if (c.parent_id) subfolderCount.set(c.parent_id, (subfolderCount.get(c.parent_id) || 0) + 1);
@@ -80,7 +80,7 @@ async function detail(id) {
   const links = await db('GET', `collection_assets?collection_id=eq.${q(id)}&select=sort_order,asset:assets(*,asset_tags(tag:tags(id,name)),collection_assets(collection:collections(id,name)))&order=sort_order.asc`);
   const assets = links.map((l) => shapeAsset(l.asset)).filter(Boolean);
   // Sub-folders of this collection, each with a direct asset count + cover.
-  const childRows = await db('GET', `collections?parent_id=eq.${q(id)}&select=*,collection_assets(count)&order=name.asc`);
+  const childRows = await db('GET', `collections?parent_id=eq.${q(id)}&select=*,collection_assets(count)&order=sort_order.asc,name.asc`);
   const [covers, autoCovers] = await Promise.all([coverMapFor(childRows), autoCoverMapFor(childRows)]);
   const children = childRows.map((c) => shapeCollection(c, covers, autoCovers));
   // Parent breadcrumb (name only) if this is itself a sub-folder.
@@ -107,6 +107,13 @@ export async function handler(event) {
 
     if (event.httpMethod === 'POST') {
       const b = JSON.parse(event.body || '{}');
+      if (b.action === 'reorder') {
+        // Persist a new manual order: sort_order = position * 10.
+        const ids = Array.isArray(b.ids) ? b.ids : [];
+        if (!ids.length) return json({ error: 'ids required' }, 400);
+        await Promise.all(ids.map((id, i) => db('PATCH', `collections?id=eq.${q(id)}`, { body: { sort_order: (i + 1) * 10 }, prefer: 'return=minimal' })));
+        return json({ ok: true });
+      }
       if (b.action === 'add' || b.action === 'remove') {
         const { collectionId, assetIds } = b;
         if (!collectionId || !Array.isArray(assetIds) || !assetIds.length) return json({ error: 'collectionId + assetIds required' }, 400);
@@ -129,7 +136,7 @@ export async function handler(event) {
       const b = JSON.parse(event.body || '{}');
       if (!b.id) return json({ error: 'id required' }, 400);
       const patch = { updated_at: new Date().toISOString() };
-      for (const f of ['name', 'description', 'cover_asset_id']) if (f in b) patch[f] = b[f];
+      for (const f of ['name', 'description', 'cover_asset_id', 'sort_order']) if (f in b) patch[f] = b[f];
       // Move a folder under another (or to top-level with null). Guard the
       // trivial self-parent cycle; deeper cycles are unlikely via the UI.
       if ('parent_id' in b && b.parent_id !== b.id) patch.parent_id = b.parent_id || null;

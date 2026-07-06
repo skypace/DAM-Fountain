@@ -4,7 +4,7 @@ import {
   Alert, Box, Button, Chip, CircularProgress, FormControl, InputAdornment, InputLabel, LinearProgress, Menu,
   MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
-import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus, UploadCloud, Sun, Moon, Grid3x3, Ban } from 'lucide-react';
+import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus, UploadCloud, Sun, Moon, Grid3x3, Ban, Sparkles } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { api, type AssetFilters } from '../lib/api';
 import { useBrands } from '../lib/useBrands';
@@ -160,6 +160,24 @@ export function LibraryPage() {
     try { const r = await api.importAssets(urls, uploadType as Asset['type']); setImportText(''); setShowImport(false); await load(); toast(`Imported ${r.imported.length}${r.errorCount ? ` · ${r.errorCount} failed` : ''}.`); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
+  // One-click: run Claude vision on every image that has no description yet
+  // (a proxy for "not AI-tagged"), 3 at a time, with the progress overlay.
+  async function aiTagUntagged() {
+    setMenuAnchor(null); setBusy(true);
+    try {
+      const all = await api.listAssets({});
+      const targets = all.filter((a) => mediaKind(a.content_type, a.filename) === 'image' && !a.description);
+      if (!targets.length) { toast('No untagged images to process.'); return; }
+      setProgress({ done: 0, total: targets.length, pct: 0 });
+      let done = 0;
+      const lanes: Asset[][] = [[], [], []];
+      targets.forEach((a, i) => lanes[i % 3].push(a));
+      await Promise.all(lanes.map(async (lane) => {
+        for (const a of lane) { try { await api.aiTag(a.id); } catch { /* skip failures */ } done++; setProgress({ done, total: targets.length, pct: 0 }); }
+      }));
+      await load(); toast(`AI-tagged ${done} image${done === 1 ? '' : 's'}.`);
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); setProgress(null); }
+  }
   async function migrate() {
     setBusy(true);
     try { const r = await api.migrateBucket(); await load(); toast(`Imported ${r.migrated} existing bucket file${r.migrated === 1 ? '' : 's'}.`); }
@@ -270,6 +288,9 @@ export function LibraryPage() {
             <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
               <MenuItem disabled={busy} onClick={() => { setMenuAnchor(null); migrate(); }}>
                 <Download size={15} style={{ marginRight: 8 }} /> Register existing bucket files
+              </MenuItem>
+              <MenuItem disabled={busy} onClick={aiTagUntagged}>
+                <Sparkles size={15} style={{ marginRight: 8 }} /> AI-tag untagged images
               </MenuItem>
             </Menu>
           </>

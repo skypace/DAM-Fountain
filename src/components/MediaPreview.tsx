@@ -87,7 +87,7 @@ export function MediaPreview({ url, filename, contentType, variant, alt, fit }: 
   }
 
   if (kind === 'image' || kind === 'vector') {
-    return <Box component="img" src={url} alt={alt || ''} loading="lazy" sx={{ width: '100%', height: '100%', objectFit: imgFit }} />;
+    return <Box component="img" src={url} alt={alt || ''} loading="lazy" sx={{ display: 'block', width: '100%', height: '100%', objectFit: imgFit, objectPosition: 'center' }} />;
   }
 
   if (kind === 'video') {

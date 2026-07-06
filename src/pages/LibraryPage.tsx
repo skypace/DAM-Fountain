@@ -253,7 +253,7 @@ export function LibraryPage() {
       )}
       {progress && (
         <Box sx={{ position: 'fixed', inset: 0, zIndex: 1300, bgcolor: 'rgba(15,23,42,.6)', display: 'grid', placeItems: 'center' }}>
-          <Paper sx={{ p: 3, width: 360, maxWidth: '90vw', borderRadius: 3 }}>
+          <Paper sx={{ p: 3, width: 360, maxWidth: '90vw', borderRadius: 1 }}>
             <Stack spacing={1.5}>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <UploadCloud size={20} />
@@ -352,7 +352,7 @@ export function LibraryPage() {
       )}
 
       {showImport && (
-        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
           <Stack direction="row" spacing={1} alignItems="flex-start">
             <TextField fullWidth size="small" multiline minRows={2} placeholder="Paste image/PDF URLs (one per line) — e.g. assets exported from Brandox" value={importText} onChange={(e) => setImportText(e.target.value)} />
             <Stack spacing={0.5}>
@@ -363,7 +363,7 @@ export function LibraryPage() {
         </Paper>
       )}
 
-      <Paper variant="outlined" sx={{ p: 1, borderRadius: 3 }}>
+      <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1, bgcolor: 'background.paper' }}>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
           <TextField
             size="small" placeholder="Search assets…" value={q} onChange={(e) => setQ(e.target.value)}
@@ -382,7 +382,7 @@ export function LibraryPage() {
           <Popover
             open={!!filterAnchor} anchorEl={filterAnchor} onClose={() => setFilterAnchor(null)}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-            slotProps={{ paper: { sx: { p: 2, width: 300, borderRadius: 3 } } }}
+            slotProps={{ paper: { sx: { p: 2, width: 300, borderRadius: 1 } } }}
           >
             <Stack spacing={1.5}>
               <FormControl size="small" fullWidth><InputLabel>Type</InputLabel>
@@ -430,7 +430,7 @@ export function LibraryPage() {
           <EmptyState
             icon={<Search size={28} />}
             title="Search or pick a folder to begin"
-            description="Search above (or press ⌘K), choose a brand in the sidebar, or select a collection, type, or tag. Your recent items are below."
+            description="Search above, choose a brand in the sidebar, or select a collection, type, or tag. Your recent items are below."
           />
           {recentlyViewed.length > 0 && (
             <Box>
@@ -450,7 +450,7 @@ export function LibraryPage() {
           <EmptyState
             icon={<Images size={28} />}
             title={hasFilters ? 'No assets match your filters' : 'Your brand library is empty'}
-            description={hasFilters ? 'Try clearing a filter or searching for something else.' : 'Upload logos, can art, equipment shots, hero images, or sell sheets — or register files already in the bucket from the ⋮ menu.'}
+            description={hasFilters ? 'Try clearing a filter or searching for something else.' : 'Upload logos, can art, equipment shots, hero images, or sell sheets, or register files already in the bucket.'}
             action={!hasFilters ? (
               <Button component="label" variant="contained" startIcon={<Upload size={16} />}>
                 Upload assets

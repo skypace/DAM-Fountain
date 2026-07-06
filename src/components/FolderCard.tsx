@@ -76,10 +76,10 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged, sortable, 
       onDrop={onDrop}
       onClick={() => onOpen(c.id)}
       sx={{
-        overflow: 'hidden', cursor: 'pointer', position: 'relative', transition: '.15s',
+        overflow: 'hidden', cursor: 'pointer', position: 'relative', transition: '.15s', borderRadius: 1,
         borderColor: over ? 'primary.main' : 'divider', borderWidth: over ? 2 : 1,
         boxShadow: over ? '0 0 0 3px rgba(31,78,121,.18)' : 'none',
-        '&:hover': { borderColor: 'primary.main', boxShadow: '0 10px 24px rgba(15,23,42,.12)' },
+        '&:hover': { borderColor: 'primary.main', boxShadow: '0 8px 18px rgba(15,23,42,.1)' },
       }}
     >
       <Box sx={{ position: 'relative', aspectRatio: '16 / 9', overflow: 'hidden', ...(c.cover ? previewBgSx(bgFor(c.id)) : { bgcolor: 'action.hover' }) }}>

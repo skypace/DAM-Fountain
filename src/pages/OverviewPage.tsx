@@ -16,7 +16,7 @@ const fmtBytes = (n: number) => {
 
 function StatTile({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, flex: 1, minWidth: 150 }}>
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1, flex: 1, minWidth: 150 }}>
       <Typography variant="h4" sx={{ fontWeight: 800 }}>{value}</Typography>
       <Typography variant="body2" color="text.secondary">{label}</Typography>
       {sub && <Typography variant="caption" color="text.secondary">{sub}</Typography>}
@@ -27,14 +27,14 @@ function StatTile({ label, value, sub }: { label: string; value: string | number
 function Breakdown({ title, rows, onPick }: { title: string; rows: { key: string; label: string; count: number; color?: string }[]; onPick?: (key: string) => void }) {
   const max = Math.max(1, ...rows.map((r) => r.count));
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, flex: 1, minWidth: 260 }}>
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1, flex: 1, minWidth: 260 }}>
       <Typography variant="subtitle1" sx={{ mb: 1.5 }}>{title}</Typography>
       <Stack spacing={1}>
         {rows.map((r) => (
           <Box key={r.key} sx={{ cursor: onPick ? 'pointer' : 'default' }} onClick={() => onPick?.(r.key)}>
             <Stack direction="row" justifyContent="space-between"><Typography variant="body2">{r.label}</Typography><Typography variant="body2" color="text.secondary">{r.count}</Typography></Stack>
-            <Box sx={{ height: 6, borderRadius: 3, bgcolor: 'action.hover', mt: 0.5, overflow: 'hidden' }}>
-              <Box sx={{ height: '100%', width: `${(r.count / max) * 100}%`, bgcolor: r.color || 'primary.main', borderRadius: 3 }} />
+            <Box sx={{ height: 6, borderRadius: 1, bgcolor: 'action.hover', mt: 0.5, overflow: 'hidden' }}>
+              <Box sx={{ height: '100%', width: `${(r.count / max) * 100}%`, bgcolor: r.color || 'primary.main', borderRadius: 1 }} />
             </Box>
           </Box>
         ))}
@@ -97,7 +97,7 @@ export function OverviewPage() {
         <Breakdown title="By type" rows={typeRows} />
         <Breakdown title="By media" rows={mediaRows} />
       </Stack>
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
         <Typography variant="subtitle1" sx={{ mb: 1.5 }}>Largest files</Typography>
         <Stack spacing={0.75}>
           {s.largest.map((a) => (

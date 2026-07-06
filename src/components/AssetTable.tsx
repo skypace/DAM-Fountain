@@ -60,7 +60,7 @@ export function AssetTable({ assets, selected, onSelectionChange, onOpen, autoHe
       pageSizeOptions={[25, 50, 100]}
       initialState={{ pagination: { paginationModel: { pageSize: 50, page: 0 } } }}
       sx={{
-        border: '1px solid', borderColor: 'divider', borderRadius: 3,
+        border: '1px solid', borderColor: 'divider', borderRadius: 1,
         '& .MuiDataGrid-row': { cursor: 'pointer' },
         '& .MuiDataGrid-columnHeaders': { bgcolor: '#fafbfc' },
         '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within': { outline: 'none' },

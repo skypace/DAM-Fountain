@@ -34,7 +34,7 @@ export function BrandPortalPage() {
     <Box sx={{ minHeight: '100vh', bgcolor: '#f7f8fa' }}>
       <Box sx={{ bgcolor: '#0f172a', color: '#fff', py: 5 }}>
         <Container maxWidth="lg">
-          <Typography variant="overline" sx={{ opacity: 0.7, letterSpacing: 2 }}>Brand Guidelines</Typography>
+          <Typography variant="overline" sx={{ opacity: 0.7, letterSpacing: 0 }}>Brand Guidelines</Typography>
           <Typography variant="h3" sx={{ fontWeight: 800 }}>{data.label}</Typography>
         </Container>
       </Box>
@@ -46,7 +46,7 @@ export function BrandPortalPage() {
               <Typography variant="h6" sx={{ mb: 1.5 }}>Colors</Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 2 }}>
                 {doc.colors.map((c, i) => (
-                  <Paper key={i} variant="outlined" sx={{ overflow: 'hidden', borderRadius: 3 }}>
+                  <Paper key={i} variant="outlined" sx={{ overflow: 'hidden', borderRadius: 1 }}>
                     <Box sx={{ height: 84, bgcolor: c.hex || '#eee' }} />
                     <Box sx={{ p: 1.5 }}>
                       <Typography variant="subtitle2" noWrap>{c.name}</Typography>
@@ -73,7 +73,7 @@ export function BrandPortalPage() {
               </Stack>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 2 }}>
                 {data.logos.map((l) => (
-                  <Paper key={l.id} variant="outlined" sx={{ overflow: 'hidden', borderRadius: 3 }}>
+                  <Paper key={l.id} variant="outlined" sx={{ overflow: 'hidden', borderRadius: 1 }}>
                     <Box sx={{ height: 140, display: 'grid', placeItems: 'center', p: 2, bgcolor: dark ? '#0f172a' : '#fff' }}>
                       {l.isImage ? <Box component="img" src={l.url} alt={l.title || ''} sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /> : <Typography variant="caption">{(l.filename || '').split('.').pop()?.toUpperCase()}</Typography>}
                     </Box>
@@ -93,7 +93,7 @@ export function BrandPortalPage() {
               <Typography variant="h6" sx={{ mb: 1.5 }}>Typography</Typography>
               <Stack spacing={1}>
                 {doc.fonts.map((f, i) => (
-                  <Paper key={i} variant="outlined" sx={{ p: 1.5, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Paper key={i} variant="outlined" sx={{ p: 1.5, borderRadius: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <TypeIcon size={18} />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="subtitle2">{f.name}</Typography>

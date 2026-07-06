@@ -25,7 +25,7 @@ export function GridSkeleton({ count = 12 }: { count?: number }) {
     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 1.5 }}>
       {Array.from({ length: count }).map((_, i) => (
         <Box key={i} sx={{
-          borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden',
+          borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden',
           '@media (prefers-reduced-motion: no-preference)': { animation: 'fountainPulse 1.4s ease-in-out infinite' },
           '@keyframes fountainPulse': { '0%,100%': { opacity: 0.5 }, '50%': { opacity: 0.85 } },
         }}>

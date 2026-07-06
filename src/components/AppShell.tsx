@@ -20,6 +20,29 @@ const NAV = [
   { to: '/maintenance', label: 'Maintenance', icon: Wrench },
 ];
 
+const SIDEBAR_BG = '#12344f';
+const SIDEBAR_BG_DARK = '#0c263d';
+const SIDEBAR_TEXT = '#f8fafc';
+const SIDEBAR_MUTED = 'rgba(248,250,252,.66)';
+const SIDEBAR_LINE = 'rgba(255,255,255,.14)';
+const SIDEBAR_FIELD = 'rgba(255,255,255,.08)';
+
+const sidebarFieldSx = {
+  '& .MuiOutlinedInput-root': {
+    color: SIDEBAR_TEXT,
+    bgcolor: SIDEBAR_FIELD,
+    borderRadius: 1,
+    '& fieldset': { borderColor: SIDEBAR_LINE },
+    '&:hover fieldset': { borderColor: 'rgba(255,255,255,.28)' },
+    '&.Mui-focused fieldset': { borderColor: 'rgba(255,255,255,.58)' },
+    '& .MuiSvgIcon-root': { color: SIDEBAR_MUTED },
+    '& svg': { color: SIDEBAR_MUTED },
+  },
+  '& .MuiInputLabel-root': { color: SIDEBAR_MUTED },
+  '& .MuiInputLabel-root.Mui-focused': { color: SIDEBAR_TEXT },
+  '& .MuiInputBase-input::placeholder': { color: SIDEBAR_MUTED, opacity: 1 },
+};
+
 // Collapsible sidebar search: shows a box, and reveals matching collections +
 // assets only while there's a query with matches.
 function SidebarSearch() {
@@ -51,13 +74,14 @@ function SidebarSearch() {
         size="small" fullWidth placeholder="Search" value={q}
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && q.trim()) go(`/?q=${encodeURIComponent(q.trim())}`); }}
+        sx={sidebarFieldSx}
         InputProps={{
           startAdornment: <InputAdornment position="start"><Search size={15} /></InputAdornment>,
           endAdornment: q ? <InputAdornment position="end"><X size={14} style={{ cursor: 'pointer' }} onClick={() => setQ('')} /></InputAdornment> : undefined,
         }}
       />
       {hasResults && (
-        <Paper elevation={4} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, mt: 0.5, zIndex: 20, borderRadius: 2, overflow: 'hidden', maxHeight: 360, overflowY: 'auto' }}>
+        <Paper elevation={4} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, mt: 0.5, zIndex: 20, borderRadius: 1, overflow: 'hidden', maxHeight: 360, overflowY: 'auto' }}>
           {cols.length > 0 && <Typography variant="caption" sx={{ px: 1.5, pt: 1, display: 'block', color: 'text.secondary' }}>Folders</Typography>}
           {cols.map((c) => (
             <MenuItem key={c.id} dense onClick={() => go(`/collections/${c.id}`)}>
@@ -86,7 +110,7 @@ function BrandScopePicker() {
   const { brands } = useBrands();
   const [scope, setScope] = useBrandScope();
   return (
-    <FormControl size="small" fullWidth sx={{ mb: 1.5 }}>
+    <FormControl size="small" fullWidth sx={{ mb: 1.5, ...sidebarFieldSx }}>
       <InputLabel>Brand</InputLabel>
       <Select label="Brand" value={brands.some((b) => b.slug === scope) || scope === 'all' ? scope : 'all'} onChange={(e) => setScope(e.target.value)}>
         <MenuItem value="all">All brands</MenuItem>
@@ -105,18 +129,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
       <CommandPalette />
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '236px 1fr' }, minHeight: '100vh', bgcolor: 'background.default' }}>
-        <Box sx={{ borderRight: '1px solid', borderColor: 'divider', p: 2, display: { xs: 'none', md: 'block' }, position: 'sticky', top: 0, height: '100vh', bgcolor: '#ffffff' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '248px 1fr' }, minHeight: '100vh', bgcolor: 'background.default' }}>
+        <Box sx={{ p: 2, display: { xs: 'none', md: 'block' }, position: 'sticky', top: 0, height: '100vh', bgcolor: SIDEBAR_BG, color: SIDEBAR_TEXT }}>
           <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2.5 }}>
-            <Box component="img" src="/fountain-icon.png" alt="Fountain DAM" sx={{ width: 40, height: 40, borderRadius: 2, display: 'block' }} />
+            <Box sx={{ width: 42, height: 42, borderRadius: 1.5, bgcolor: '#ffffff', display: 'grid', placeItems: 'center', boxShadow: '0 10px 22px rgba(0,0,0,.16)' }}>
+              <Box component="img" src="/fountain-icon.png" alt="Fountain DAM" sx={{ width: 34, height: 34, display: 'block' }} />
+            </Box>
             <Box>
-              <Typography variant="subtitle1" lineHeight={1.1}>Fountain</Typography>
-              <Typography variant="caption" color="text.secondary">DAM</Typography>
+              <Typography variant="subtitle1" lineHeight={1.1} sx={{ color: SIDEBAR_TEXT }}>Fountain</Typography>
+              <Typography variant="caption" sx={{ color: SIDEBAR_MUTED }}>DAM</Typography>
             </Box>
           </Stack>
           <BrandScopePicker />
           <SidebarSearch />
-          <Stack spacing={0.5}>
+          <Stack spacing={0.5} sx={{ mt: 1.5 }}>
             {nav.map(({ to, label, icon: Icon }) => (
               <Button
                 key={to}
@@ -124,21 +150,25 @@ export function AppShell({ children }: { children: ReactNode }) {
                 to={to}
                 startIcon={<Icon size={18} />}
                 sx={{
-                  justifyContent: 'flex-start', px: 1.5, py: 1, borderRadius: 2,
+                  justifyContent: 'flex-start', px: 1.25, py: 1, borderRadius: 1, minHeight: 38,
                   fontWeight: active(to) ? 700 : 600,
-                  color: active(to) ? 'primary.main' : 'text.secondary',
-                  bgcolor: active(to) ? 'action.selected' : 'transparent',
-                  '& .MuiButton-startIcon': { color: active(to) ? 'primary.main' : 'text.disabled' },
-                  '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+                  color: active(to) ? SIDEBAR_BG_DARK : SIDEBAR_MUTED,
+                  bgcolor: active(to) ? '#ffffff' : 'transparent',
+                  '& .MuiButton-startIcon': { color: active(to) ? SIDEBAR_BG_DARK : 'rgba(248,250,252,.5)' },
+                  '&:hover': {
+                    bgcolor: active(to) ? '#ffffff' : 'rgba(255,255,255,.1)',
+                    color: active(to) ? SIDEBAR_BG_DARK : SIDEBAR_TEXT,
+                    '& .MuiButton-startIcon': { color: active(to) ? SIDEBAR_BG_DARK : SIDEBAR_TEXT },
+                  },
                 }}
               >
                 {label}
               </Button>
             ))}
           </Stack>
-          <Box sx={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
-            {email && <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mb: 0.5 }}>{email}</Typography>}
-            <Button size="small" fullWidth startIcon={<LogOut size={16} />} onClick={() => { logout(); location.reload(); }} sx={{ justifyContent: 'flex-start', color: 'text.secondary' }}>
+          <Box sx={{ position: 'absolute', bottom: 16, left: 16, right: 16, pt: 1.5, borderTop: '1px solid', borderColor: SIDEBAR_LINE }}>
+            {email && <Typography variant="caption" noWrap sx={{ display: 'block', mb: 0.5, color: SIDEBAR_MUTED }}>{email}</Typography>}
+            <Button size="small" fullWidth startIcon={<LogOut size={16} />} onClick={() => { logout(); location.reload(); }} sx={{ justifyContent: 'flex-start', color: SIDEBAR_MUTED, borderRadius: 1, '&:hover': { bgcolor: 'rgba(255,255,255,.1)', color: SIDEBAR_TEXT } }}>
               Sign out
             </Button>
           </Box>

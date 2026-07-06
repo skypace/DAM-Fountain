@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Box, CircularProgress, IconButton, Paper, Stack, Typography } from '@mui/material';
-import { FolderOpen, Trash2 } from 'lucide-react';
+import { Box, CircularProgress, IconButton, Menu, MenuItem, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { FolderOpen, Trash2, Palette, Check } from 'lucide-react';
 import type { Collection } from '../lib/types';
 import { api } from '../lib/api';
 import { dtHasFiles, readAssetIds, readFolderId, readDropped, uploadDroppedTree } from '../lib/dnd';
-import { usePreviewBg, previewBgSx } from '../lib/previewBg';
+import { usePreviewBg, previewBgSx, setItemBg, getItemBg, PREVIEW_BGS, PREVIEW_BG_LABEL } from '../lib/previewBg';
 import { MediaPreview } from './MediaPreview';
 import { useToast } from './Toast';
 
@@ -22,7 +22,8 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged }: {
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState<number | null>(null);
-  const [bg] = usePreviewBg();
+  const [, , bgFor] = usePreviewBg();
+  const [bgMenu, setBgMenu] = useState<null | HTMLElement>(null);
 
   const onDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('application/x-fountain-folder', c.id);
@@ -73,14 +74,33 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged }: {
         '&:hover': { borderColor: 'primary.main', boxShadow: '0 10px 24px rgba(15,23,42,.12)' },
       }}
     >
-      <Box sx={{ aspectRatio: '16 / 9', display: 'grid', placeItems: 'center', overflow: 'hidden', pointerEvents: 'none', p: c.cover ? 1 : 0, ...(c.cover ? previewBgSx(bg) : { bgcolor: 'action.hover' }) }}>
+      <Box sx={{ position: 'relative', aspectRatio: '16 / 9', display: 'grid', placeItems: 'center', overflow: 'hidden', p: c.cover ? 1 : 0, ...(c.cover ? previewBgSx(bgFor(c.id)) : { bgcolor: 'action.hover' }) }}>
         {busy ? (
           <Stack alignItems="center" spacing={0.5}>
             <CircularProgress size={22} variant={pct === null ? 'indeterminate' : 'determinate'} value={pct ?? 0} />
             {pct !== null && <Typography variant="caption" color="text.secondary">{pct}%</Typography>}
           </Stack>
-        ) : c.cover ? <MediaPreview url={c.cover.url} filename={c.cover.filename} contentType={c.cover.content_type} variant="thumb" alt={c.name} fit="contain" />
+        ) : c.cover ? <Box sx={{ width: '100%', height: '100%', pointerEvents: 'none' }}><MediaPreview url={c.cover.url} filename={c.cover.filename} contentType={c.cover.content_type} variant="thumb" alt={c.name} fit="contain" /></Box>
           : <FolderOpen size={28} opacity={0.4} />}
+        {c.cover && (
+          <Tooltip title="Folder background">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); setBgMenu(e.currentTarget); }}
+              sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(255,255,255,.8)', '&:hover': { bgcolor: '#fff' }, width: 24, height: 24 }}>
+              <Palette size={13} />
+            </IconButton>
+          </Tooltip>
+        )}
+        <Menu anchorEl={bgMenu} open={!!bgMenu} onClose={() => setBgMenu(null)} onClick={(e) => e.stopPropagation()}>
+          {PREVIEW_BGS.map((m) => (
+            <MenuItem key={m} dense onClick={() => { setItemBg(c.id, m); setBgMenu(null); }}>
+              {getItemBg(c.id) === m ? <Check size={13} style={{ marginRight: 8 }} /> : <Box sx={{ width: 21 }} />}
+              {PREVIEW_BG_LABEL[m]}
+            </MenuItem>
+          ))}
+          <MenuItem dense onClick={() => { setItemBg(c.id, null); setBgMenu(null); }}>
+            <Box sx={{ width: 21 }} />Use default
+          </MenuItem>
+        </Menu>
       </Box>
       <Box sx={{ p: 1.25 }}>
         <Stack direction="row" alignItems="center" spacing={1}>

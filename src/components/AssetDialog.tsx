@@ -9,7 +9,7 @@ import { STATUSES } from '../lib/types';
 import { useBrands } from '../lib/useBrands';
 import { useTypes } from '../lib/useTypes';
 import { api } from '../lib/api';
-import { usePreviewBg, previewBgSx } from '../lib/previewBg';
+import { usePreviewBg, previewBgSx, setItemBg, getItemBg, PREVIEW_BGS, PREVIEW_BG_LABEL } from '../lib/previewBg';
 import { MediaPreview } from './MediaPreview';
 import { useToast } from './Toast';
 
@@ -30,7 +30,8 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
   const [brand, setBrand] = useState(asset.brand);
   const { brands: brandList } = useBrands();
   const { types: typeList, addType } = useTypes();
-  const [bg] = usePreviewBg();
+  const [, , bgFor] = usePreviewBg();
+  const [, bgTick] = useState(0);
   const [status, setStatus] = useState(asset.status);
   const [tags, setTags] = useState<string[]>(asset.tags.map((t) => t.name));
   const [collectionId, setCollectionId] = useState('');
@@ -108,8 +109,20 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
     <Dialog open onClose={onClose} maxWidth="md" fullWidth>
       <DialogContent>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-          <Box sx={{ borderRadius: 2, display: 'grid', placeItems: 'center', minHeight: 260, overflow: 'hidden', p: 1, ...previewBgSx(bg) }}>
+          <Box>
+          <Box sx={{ borderRadius: 2, display: 'grid', placeItems: 'center', minHeight: 260, overflow: 'hidden', p: 1, ...previewBgSx(bgFor(asset.id)) }}>
             <MediaPreview url={asset.url} filename={asset.filename} contentType={asset.content_type} variant="full" alt={asset.title || ''} />
+          </Box>
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.75, flexWrap: 'wrap' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>Background:</Typography>
+            {PREVIEW_BGS.map((m) => (
+              <Chip key={m} size="small" label={PREVIEW_BG_LABEL[m]}
+                variant={getItemBg(asset.id) === m ? 'filled' : 'outlined'}
+                color={getItemBg(asset.id) === m ? 'primary' : 'default'}
+                onClick={() => { setItemBg(asset.id, m); bgTick((n) => n + 1); }} />
+            ))}
+            <Chip size="small" label="Default" variant="outlined" onClick={() => { setItemBg(asset.id, null); bgTick((n) => n + 1); }} />
+          </Stack>
           </Box>
           <Stack spacing={1.5}>
             <TextField size="small" label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />

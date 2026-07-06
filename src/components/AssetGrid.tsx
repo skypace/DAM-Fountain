@@ -13,7 +13,7 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
   selected?: Set<string>;
   onToggleSelect?: (id: string) => void;
 }) {
-  const [bg] = usePreviewBg();
+  const [, , bgFor] = usePreviewBg();
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 2 }}>
       {assets.map((a) => {
@@ -49,7 +49,7 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
               '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
             }}
           >
-            <Box sx={{ aspectRatio: '4 / 3', display: 'grid', placeItems: 'center', position: 'relative', p: usesBg ? 1 : 0, ...(usesBg ? previewBgSx(bg) : { bgcolor: 'action.hover' }) }}>
+            <Box sx={{ aspectRatio: '4 / 3', display: 'grid', placeItems: 'center', position: 'relative', p: usesBg ? 1 : 0, ...(usesBg ? previewBgSx(bgFor(a.id)) : { bgcolor: 'action.hover' }) }}>
               <MediaPreview url={a.url} filename={a.filename} contentType={a.content_type} variant="thumb" alt={a.title || a.filename || ''} />
               {kind === 'video' && (
                 <Box sx={{ position: 'absolute', bottom: 6, left: 6, px: 0.75, py: 0.25, borderRadius: 1, bgcolor: 'rgba(0,0,0,.6)', color: '#fff', fontSize: 10, fontWeight: 700 }}>▶ VIDEO</Box>

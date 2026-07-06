@@ -29,20 +29,26 @@ async function coverMapFor(rows) {
   }
   return map;
 }
-// For collections with no explicit cover, auto-pick the first image asset in
-// the collection so every folder with a picture shows a thumbnail.
+// For collections with no explicit cover, auto-pick a cover: the first image
+// asset if there is one, otherwise the first asset of ANY type (PDF/video/source
+// file) so every non-empty folder shows a thumbnail.
 async function autoCoverMapFor(rows) {
   const need = rows.filter((c) => !c.cover_asset_id).map((c) => c.id);
   const map = new Map();
   if (!need.length) return map;
   const links = await db('GET', `collection_assets?collection_id=in.(${need.map(q).join(',')})&select=collection_id,sort_order,asset:assets(storage_path,filename,content_type)&order=sort_order.asc`);
+  const firstAny = new Map();
   for (const l of links) {
     const a = l.asset;
-    if (!a || map.has(l.collection_id)) continue;
-    if (isImg(a.storage_path) || /^image\//i.test(a.content_type || '')) {
-      map.set(l.collection_id, { url: publicUrl(a.storage_path), filename: a.filename, content_type: a.content_type, storage_path: a.storage_path });
+    if (!a) continue;
+    const info = { url: publicUrl(a.storage_path), filename: a.filename, content_type: a.content_type, storage_path: a.storage_path };
+    if (!firstAny.has(l.collection_id)) firstAny.set(l.collection_id, info);
+    if (!map.has(l.collection_id) && (isImg(a.storage_path) || /^image\//i.test(a.content_type || ''))) {
+      map.set(l.collection_id, info);
     }
   }
+  // Fall back to the first asset of any kind where no image was found.
+  for (const [cid, info] of firstAny) if (!map.has(cid)) map.set(cid, info);
   return map;
 }
 const shapeCollection = (c, covers, autoCovers, extra = {}) => {

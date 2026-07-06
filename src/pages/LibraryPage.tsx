@@ -4,7 +4,7 @@ import {
   Alert, Box, Button, Chip, CircularProgress, FormControl, InputAdornment, InputLabel, LinearProgress, Menu,
   MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
-import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus, UploadCloud, Sun, Moon, Grid3x3 } from 'lucide-react';
+import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus, UploadCloud, Sun, Moon, Grid3x3, Ban } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { api, type AssetFilters } from '../lib/api';
 import { useBrands } from '../lib/useBrands';
@@ -359,9 +359,10 @@ export function LibraryPage() {
             size="small" exclusive value={previewBg}
             onChange={(_, v) => { if (v) setPreviewBg(v); }}
           >
-            <ToggleButton value="light" aria-label="Light preview background"><Tooltip title="White background"><Sun size={16} /></Tooltip></ToggleButton>
-            <ToggleButton value="dark" aria-label="Dark preview background"><Tooltip title="Dark background"><Moon size={16} /></Tooltip></ToggleButton>
-            <ToggleButton value="checker" aria-label="Checkerboard preview background"><Tooltip title="Transparency checkerboard"><Grid3x3 size={16} /></Tooltip></ToggleButton>
+            <ToggleButton value="light" aria-label="White background"><Tooltip title="White"><Sun size={16} /></Tooltip></ToggleButton>
+            <ToggleButton value="dark" aria-label="Dark background"><Tooltip title="Dark"><Moon size={16} /></Tooltip></ToggleButton>
+            <ToggleButton value="none" aria-label="No background"><Tooltip title="None"><Ban size={16} /></Tooltip></ToggleButton>
+            <ToggleButton value="diecut" aria-label="Die-cut / transparency"><Tooltip title="Die cut (transparency)"><Grid3x3 size={16} /></Tooltip></ToggleButton>
           </ToggleButtonGroup>
         </Stack>
       </Paper>

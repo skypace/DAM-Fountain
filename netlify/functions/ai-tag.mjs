@@ -8,7 +8,7 @@ const isImg = (p) => /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(p || '');
 async function resolveTagIds(names) {
   const clean = [...new Set((names || []).map((n) => String(n).trim().toLowerCase()).filter(Boolean))].slice(0, 12);
   if (!clean.length) return [];
-  await db('POST', 'tags', { body: clean.map((name) => ({ name })), prefer: 'resolution=merge-duplicates,return=minimal' });
+  await db('POST', 'tags?on_conflict=name', { body: clean.map((name) => ({ name })), prefer: 'resolution=merge-duplicates,return=minimal' });
   const rows = await db('GET', `tags?select=id,name&name=in.(${clean.map((n) => `"${n.replace(/"/g, '')}"`).join(',')})`);
   return rows.map((r) => r.id);
 }
@@ -55,7 +55,7 @@ export async function handler(event) {
 
     // Apply: merge tags; set description only if the asset has none.
     const tagIds = await resolveTagIds(tags);
-    if (tagIds.length) await db('POST', 'asset_tags', { body: tagIds.map((tag_id) => ({ asset_id: assetId, tag_id })), prefer: 'resolution=merge-duplicates,return=minimal' });
+    if (tagIds.length) await db('POST', 'asset_tags?on_conflict=asset_id,tag_id', { body: tagIds.map((tag_id) => ({ asset_id: assetId, tag_id })), prefer: 'resolution=merge-duplicates,return=minimal' });
     if (description && !asset.description) {
       await db('PATCH', `assets?id=eq.${q(assetId)}`, { body: { description, updated_at: new Date().toISOString() }, prefer: 'return=minimal' });
     }

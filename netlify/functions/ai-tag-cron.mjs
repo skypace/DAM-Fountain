@@ -24,7 +24,7 @@ function sourceUrl(storagePath) {
 async function resolveTagIds(names) {
   const clean = [...new Set((names || []).map((n) => String(n).trim().toLowerCase()).filter(Boolean))].slice(0, 12);
   if (!clean.length) return [];
-  await db('POST', 'tags', { body: clean.map((name) => ({ name })), prefer: 'resolution=merge-duplicates,return=minimal' });
+  await db('POST', 'tags?on_conflict=name', { body: clean.map((name) => ({ name })), prefer: 'resolution=merge-duplicates,return=minimal' });
   const rows = await db('GET', `tags?select=id,name&name=in.(${clean.map((n) => `"${n.replace(/"/g, '')}"`).join(',')})`);
   return rows.map((r) => r.id);
 }
@@ -52,7 +52,7 @@ async function tagOne(asset) {
   const tags = Array.isArray(parsed.tags) ? parsed.tags : [];
   const description = typeof parsed.description === 'string' ? parsed.description.trim() : '';
   const tagIds = await resolveTagIds(tags);
-  if (tagIds.length) await db('POST', 'asset_tags', { body: tagIds.map((tag_id) => ({ asset_id: asset.id, tag_id })), prefer: 'resolution=merge-duplicates,return=minimal' });
+  if (tagIds.length) await db('POST', 'asset_tags?on_conflict=asset_id,tag_id', { body: tagIds.map((tag_id) => ({ asset_id: asset.id, tag_id })), prefer: 'resolution=merge-duplicates,return=minimal' });
   await db('PATCH', `assets?id=eq.${q(asset.id)}`, { body: { description: description || asset.filename || 'asset', updated_at: new Date().toISOString() }, prefer: 'return=minimal' });
 }
 

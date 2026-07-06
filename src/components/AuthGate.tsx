@@ -1,14 +1,19 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Box, Button, CircularProgress, Paper, Stack, TextField, Typography } from '@mui/material';
-import { getSession, login } from '../lib/auth';
+import { ensureValidSession, login } from '../lib/auth';
 
 export function AuthGate({ children }: { children: ReactNode }) {
-  const [authed, setAuthed] = useState<boolean>(() => !!getSession());
+  const [authed, setAuthed] = useState<boolean | null>(null); // null = still checking
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Validate (and refresh) any stored session on load so an expired token
+  // falls back to the sign-in form instead of wedging the app in a token error.
+  useEffect(() => { ensureValidSession().then((s) => setAuthed(!!s)); }, []);
+
+  if (authed === null) return <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}><CircularProgress /></Box>;
   if (authed) return <>{children}</>;
 
   async function submit(e: React.FormEvent) {

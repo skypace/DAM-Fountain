@@ -1,17 +1,24 @@
 import JSZip from 'jszip';
-import { token } from './auth';
+import { token, refreshSession, logout } from './auth';
 import type { Asset, AssetVersion, BrandGuidelines, BrandInfo, Collection, GuidelineFile, Member, Share, Tag, TypeInfo, AssetType, Brand } from './types';
 
 const FN = '/.netlify/functions';
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://gfsdpwiqzshhexkofiif.supabase.co';
 export const brandAssetUrl = (path: string) => `${SUPABASE_URL}/storage/v1/object/public/brand-assets/${path.split('/').map(encodeURIComponent).join('/')}`;
 
-async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function call<T>(path: string, init: RequestInit = {}, _retried = false): Promise<T> {
   const headers = new Headers(init.headers);
   const t = token();
   if (t) headers.set('Authorization', `Bearer ${t}`);
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const res = await fetch(`${FN}${path}`, { ...init, headers });
+  // Access token expired mid-session → refresh once and retry transparently.
+  if ((res.status === 401 || res.status === 403) && !_retried) {
+    const refreshed = await refreshSession();
+    if (refreshed) return call<T>(path, init, true);
+    logout();
+    if (typeof location !== 'undefined') location.reload();
+  }
   const text = await res.text();
   let data: unknown = null;
   if (text) { try { data = JSON.parse(text); } catch { data = text; } }

@@ -54,7 +54,7 @@ export function BulkActionBar({ ids, assets, collections, onDone, onClear }: {
     <Paper
       elevation={8}
       sx={{
-        position: 'sticky', bottom: 16, mt: 2, p: 1.25, borderRadius: 3, border: '1px solid', borderColor: 'primary.main',
+        position: 'sticky', bottom: 16, mt: 2, p: 1.25, borderRadius: 1, border: '1px solid', borderColor: 'primary.main',
         display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', zIndex: 20,
         boxShadow: '0 10px 30px rgba(15,23,42,.16)', bgcolor: 'background.paper',
       }}

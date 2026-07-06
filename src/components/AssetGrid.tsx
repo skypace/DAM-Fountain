@@ -41,11 +41,11 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
             aria-pressed={selectable ? isSel : undefined}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } }}
             sx={{
-              overflow: 'hidden', cursor: 'pointer', position: 'relative', borderRadius: 3,
+              overflow: 'hidden', cursor: 'pointer', position: 'relative', borderRadius: 1,
               borderColor: isSel ? 'primary.main' : 'divider', borderWidth: isSel ? 2 : 1,
               transition: 'transform .18s ease, box-shadow .18s ease, border-color .18s ease',
               '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
-              '&:hover': { borderColor: 'primary.main', transform: 'translateY(-3px)', boxShadow: '0 10px 24px rgba(15,23,42,.12)' },
+              '&:hover': { borderColor: 'primary.main', transform: 'translateY(-2px)', boxShadow: '0 8px 18px rgba(15,23,42,.1)' },
               '&:hover .asset-actions': { opacity: 1 },
               '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
             }}
@@ -76,7 +76,7 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
             </Box>
             <Box sx={{ p: 1.25 }}>
               <Typography variant="body2" fontWeight={700} noWrap title={a.title || a.filename || ''}>{a.title || a.filename}</Typography>
-              <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, minWidth: 0 }} alignItems="center">
+              <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, minWidth: 0, overflow: 'hidden', '& .MuiChip-root': { flexShrink: 0, maxWidth: 92 } }} alignItems="center">
                 <Chip size="small" variant="outlined" label={a.type} sx={{ height: 20, fontSize: 11 }} />
                 {kind !== 'image' && <Chip size="small" label={kind} sx={{ height: 20, fontSize: 11, bgcolor: `${MEDIA_META[kind].color}22`, color: MEDIA_META[kind].color, fontWeight: 700 }} />}
                 {a.brand !== 'shared' && <Chip size="small" variant="outlined" label={a.brand} sx={{ height: 20, fontSize: 11, textTransform: 'capitalize' }} />}

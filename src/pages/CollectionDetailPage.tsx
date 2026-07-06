@@ -99,7 +99,7 @@ export function CollectionDetailPage() {
       )}
       {uploading && (
         <Box sx={{ position: 'fixed', inset: 0, zIndex: 1300, bgcolor: 'rgba(15,23,42,.6)', display: 'grid', placeItems: 'center' }}>
-          <Paper sx={{ p: 3, width: 360, maxWidth: '90vw', borderRadius: 3 }}>
+          <Paper sx={{ p: 3, width: 360, maxWidth: '90vw', borderRadius: 1 }}>
             <Stack spacing={1.5}>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <UploadCloud size={20} />

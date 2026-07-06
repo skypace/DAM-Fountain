@@ -118,7 +118,7 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '5fr 6fr' }, gap: 2.5 }}>
           {/* LEFT — preview + display controls + quick actions */}
           <Box>
-            <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'grid', placeItems: 'center', minHeight: 300, overflow: 'hidden', p: 1, ...previewBgSx(bgFor(asset.id)) }}>
+            <Box sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', display: 'grid', placeItems: 'center', minHeight: 300, overflow: 'hidden', p: 1, ...previewBgSx(bgFor(asset.id)) }}>
               <MediaPreview url={asset.url} filename={asset.filename} contentType={asset.content_type} variant="full" alt={asset.title || ''} />
             </Box>
             <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 1, flexWrap: 'wrap' }} useFlexGap>
@@ -175,7 +175,7 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
 
             {/* Placement */}
             <Divider />
-            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>Placement</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0 }}>Placement</Typography>
             <Stack direction="row" spacing={1}>
               <FormControl size="small" fullWidth>
                 <InputLabel>Move to folder</InputLabel>
@@ -219,7 +219,7 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
         {versions && (
           <>
             <Divider sx={{ my: 2 }} />
-            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>Version history</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0 }}>Version history</Typography>
             {versions.length === 0
               ? <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>No previous versions — this is the original.</Typography>
               : (

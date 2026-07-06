@@ -90,8 +90,8 @@ export function MediaPreview({ url, filename, contentType, variant, alt, fit }: 
     return (
       <Stack alignItems="center" justifyContent="center" spacing={full ? 1 : 0.5} sx={{ width: '100%', height: '100%', color: MEDIA_META.design.color, p: 1, textAlign: 'center' }}>
         <PenTool size={full ? 44 : 30} />
-        <Typography sx={{ fontWeight: 800, fontSize: full ? 20 : 15, letterSpacing: '.5px' }}>{ext}</Typography>
-        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', lineHeight: 1.15, color: 'text.secondary', fontSize: full ? 12 : 9.5 }}>
+        <Typography sx={{ fontWeight: 800, fontSize: full ? 20 : 15, letterSpacing: 0 }}>{ext}</Typography>
+        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0, lineHeight: 1.15, color: 'text.secondary', fontSize: full ? 12 : 9.5 }}>
           Source · Edit File
         </Typography>
       </Stack>
@@ -144,7 +144,7 @@ export function MediaPreview({ url, filename, contentType, variant, alt, fit }: 
   return (
     <Stack alignItems="center" spacing={0.5} sx={{ color: MEDIA_META[kind].color }}>
       <Icon size={full ? 48 : 30} />
-      <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', fontSize: full ? 12 : 10 }}>
+      <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0, fontSize: full ? 12 : 10 }}>
         {(filename || '').split('.').pop()?.slice(0, 6) || kind}
       </Typography>
     </Stack>

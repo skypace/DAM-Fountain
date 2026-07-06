@@ -21,9 +21,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2 }}>
-      <Paper variant="outlined" sx={{ p: 4, width: '100%', maxWidth: 400 }}>
+      <Paper variant="outlined" sx={{ p: 4, width: '100%', maxWidth: 400, borderRadius: 1 }}>
         <Stack spacing={1.25} sx={{ mb: 2 }} alignItems="center" textAlign="center">
-          <Box component="img" src="/fountain-icon.png" alt="Fountain DAM" sx={{ width: 64, height: 64, borderRadius: 2.5 }} />
+          <Box component="img" src="/fountain-icon.png" alt="Fountain DAM" sx={{ width: 64, height: 64, borderRadius: 1 }} />
           <Typography variant="h6">Fountain DAM</Typography>
           <Typography variant="body2" color="text.secondary">
             Sign in with your Alameda Point BG account to manage the brand library.

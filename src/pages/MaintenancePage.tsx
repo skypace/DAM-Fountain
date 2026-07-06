@@ -74,7 +74,7 @@ export function MaintenancePage() {
             <Stack spacing={2}>
               <Typography variant="body2" color="text.secondary">Grouped by identical size + filename. Keep one and trash the rest.</Typography>
               {dupeGroups.map((g, i) => (
-                <Paper key={i} variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+                <Paper key={i} variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                     <Chip size="small" label={`${g.length} copies`} color="warning" />
                     <Typography variant="body2" noWrap sx={{ flex: 1 }}>{g[0].filename}</Typography>
@@ -104,7 +104,7 @@ export function MaintenancePage() {
           : (
             <Stack spacing={0.5}>
               {trash.map((a) => (
-                <Paper key={a.id} variant="outlined" sx={{ p: 1, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                <Paper key={a.id} variant="outlined" sx={{ p: 1, borderRadius: 1, display: 'flex', alignItems: 'center', gap: 1.25 }}>
                   <Thumb a={a} />
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant="body2" noWrap>{a.title || a.filename}</Typography>

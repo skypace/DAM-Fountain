@@ -9,6 +9,18 @@ const isPdf = (url: string, filename?: string | null, ct?: string | null) =>
 // Sketch, Figma, XD, InDesign, Affinity). Shown as a labeled placeholder.
 const SOURCE_EXT = /\.(ai|eps|psd|psb|sketch|fig|xd|indd|idml|afdesign|afphoto|cdr)(\?|#|$)/i;
 const isSource = (url: string, filename?: string | null) => SOURCE_EXT.test(filename || '') || SOURCE_EXT.test(url);
+
+// Serve small, fast thumbnails from Supabase's on-the-fly image render instead
+// of the full-res original (huge perf win on a grid of hi-res art). Only for
+// png/jpg/webp; other formats fall back to the original URL.
+const RENDER_OK = /\.(png|jpe?g|webp)(\?|#|$)/i;
+function sizedUrl(url: string, variant: 'thumb' | 'full') {
+  if (!RENDER_OK.test(url)) return url;
+  const w = variant === 'thumb' ? 480 : 1600;
+  const rendered = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+  if (rendered === url) return url;
+  return `${rendered}${url.includes('?') ? '&' : '?'}width=${w}&quality=78&resize=contain`;
+}
 const isHeic = (url: string, filename?: string | null, ct?: string | null) =>
   /\.hei[cf](\?|#|$)/i.test(url) || /\.hei[cf]$/i.test(filename || '') || /image\/hei[cf]/i.test(ct || '');
 
@@ -87,7 +99,9 @@ export function MediaPreview({ url, filename, contentType, variant, alt, fit }: 
   }
 
   if (kind === 'image' || kind === 'vector') {
-    return <Box component="img" src={url} alt={alt || ''} loading="lazy" sx={{ display: 'block', width: '100%', height: '100%', objectFit: imgFit, objectPosition: 'center' }} />;
+    // SVG renders as-is (crisp at any size); raster uses a sized render URL.
+    const src = kind === 'vector' ? url : sizedUrl(url, variant);
+    return <Box component="img" src={src} alt={alt || ''} loading="lazy" sx={{ display: 'block', width: '100%', height: '100%', objectFit: imgFit, objectPosition: 'center' }} />;
   }
 
   if (kind === 'video') {

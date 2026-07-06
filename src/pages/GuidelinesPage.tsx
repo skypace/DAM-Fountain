@@ -3,7 +3,7 @@ import {
   Box, Button, CircularProgress, Divider, IconButton, Paper, Stack, TextField, ToggleButton,
   ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
-import { Plus, Trash2, Save, Upload, Download, FileText, Copy, Type, PlusCircle } from 'lucide-react';
+import { Plus, Trash2, Save, Upload, Download, FileText, Copy, Type, PlusCircle, Link as LinkIcon } from 'lucide-react';
 import type { Asset, BrandGuidelines, BrandKey, GuidelineFile } from '../lib/types';
 import { api } from '../lib/api';
 import { useBrands } from '../lib/useBrands';
@@ -122,6 +122,9 @@ export function GuidelinesPage() {
             </ToggleButtonGroup>
             <Tooltip title="Add a sister brand — gets its own guidelines + a brand filter in the library">
               <Button size="small" color="secondary" startIcon={<PlusCircle size={15} />} onClick={addSisterBrand}>Sister brand</Button>
+            </Tooltip>
+            <Tooltip title="Copy a public, no-login brand portal link to share with vendors">
+              <Button size="small" startIcon={<LinkIcon size={15} />} onClick={() => { navigator.clipboard?.writeText(`${location.origin}/brand/${brand}`); toast('Brand portal link copied.'); }}>Portal link</Button>
             </Tooltip>
             <Button variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={16} />} onClick={() => save()} disabled={saving}>Save</Button>
           </>

@@ -12,12 +12,14 @@ if (muiLicense) LicenseInfo.setLicenseKey(muiLicense);
 import { AppShell } from './components/AppShell';
 import { AuthGate } from './components/AuthGate';
 import { LibraryPage } from './pages/LibraryPage';
+import { OverviewPage } from './pages/OverviewPage';
 import { CollectionsPage } from './pages/CollectionsPage';
 import { CollectionDetailPage } from './pages/CollectionDetailPage';
 import { GuidelinesPage } from './pages/GuidelinesPage';
 import { SharesPage } from './pages/SharesPage';
 import { MembersPage } from './pages/MembersPage';
 import { SharePublicPage } from './pages/SharePublicPage';
+import { BrandPortalPage } from './pages/BrandPortalPage';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -27,6 +29,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Routes>
           {/* Public share pages — no auth. */}
           <Route path="/s/:token" element={<SharePublicPage />} />
+          {/* Public brand portal — no auth. */}
+          <Route path="/brand/:brand" element={<BrandPortalPage />} />
           {/* Authenticated app. */}
           <Route
             path="/*"
@@ -35,6 +39,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <AppShell>
                   <Routes>
                     <Route path="/" element={<LibraryPage />} />
+                    <Route path="/overview" element={<OverviewPage />} />
                     <Route path="/collections" element={<CollectionsPage />} />
                     <Route path="/collections/:id" element={<CollectionDetailPage />} />
                     <Route path="/guidelines" element={<GuidelinesPage />} />

@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Box, Button, FormControl, InputAdornment, InputLabel, MenuItem, Paper, Select, Stack, TextField, Typography } from '@mui/material';
-import { Images, FolderOpen, Share2, Users, LogOut, BookOpen, Search, X, FileImage } from 'lucide-react';
+import { Images, FolderOpen, Share2, Users, LogOut, BookOpen, Search, X, FileImage, LayoutDashboard } from 'lucide-react';
 import { getSession, logout } from '../lib/auth';
 import { api } from '../lib/api';
 import { useBrands } from '../lib/useBrands';
@@ -11,6 +11,7 @@ import { CommandPalette } from './CommandPalette';
 import { ToastProvider } from './Toast';
 
 const NAV = [
+  { to: '/overview', label: 'Overview', icon: LayoutDashboard },
   { to: '/', label: 'Library', icon: Images },
   { to: '/collections', label: 'Collections', icon: FolderOpen },
   { to: '/guidelines', label: 'Guidelines', icon: BookOpen },

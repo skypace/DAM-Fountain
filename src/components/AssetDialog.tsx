@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogContent, Divider, FormControl,
-  FormControlLabel, InputLabel, MenuItem, Select, Stack, TextField, Typography,
+  Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogContent, DialogTitle, Divider, FormControl,
+  FormControlLabel, IconButton, InputLabel, MenuItem, Select, Stack, TextField, Tooltip, Typography,
 } from '@mui/material';
-import { Copy, Download, Trash2, Share2, Image as ImageIcon, Sparkles, RefreshCw, History, RotateCcw } from 'lucide-react';
+import { Copy, Download, Trash2, Share2, Image as ImageIcon, Sparkles, RefreshCw, History, RotateCcw, X } from 'lucide-react';
 import type { Asset, AssetVersion, Collection } from '../lib/types';
 import { STATUSES } from '../lib/types';
 import { useBrands } from '../lib/useBrands';
@@ -109,26 +109,46 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
 
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth>
-      <DialogContent>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+      <DialogTitle sx={{ pr: 6, pb: 1 }}>
+        <Typography variant="h6" noWrap>{title || asset.filename || 'Asset'}</Typography>
+        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>{asset.filename}</Typography>
+        <IconButton onClick={onClose} sx={{ position: 'absolute', top: 12, right: 12 }} aria-label="Close"><X size={18} /></IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '5fr 6fr' }, gap: 2.5 }}>
+          {/* LEFT — preview + display controls + quick actions */}
           <Box>
-          <Box sx={{ borderRadius: 2, display: 'grid', placeItems: 'center', minHeight: 260, overflow: 'hidden', p: 1, ...previewBgSx(bgFor(asset.id)) }}>
-            <MediaPreview url={asset.url} filename={asset.filename} contentType={asset.content_type} variant="full" alt={asset.title || ''} />
+            <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', display: 'grid', placeItems: 'center', minHeight: 300, overflow: 'hidden', p: 1, ...previewBgSx(bgFor(asset.id)) }}>
+              <MediaPreview url={asset.url} filename={asset.filename} contentType={asset.content_type} variant="full" alt={asset.title || ''} />
+            </Box>
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 1, flexWrap: 'wrap' }} useFlexGap>
+              <Typography variant="caption" color="text.secondary" sx={{ mr: 0.25 }}>Background</Typography>
+              {PREVIEW_BGS.map((m) => (
+                <Chip key={m} size="small" label={PREVIEW_BG_LABEL[m]}
+                  variant={getItemBg(asset.id) === m ? 'filled' : 'outlined'}
+                  color={getItemBg(asset.id) === m ? 'primary' : 'default'}
+                  onClick={() => { setItemBg(asset.id, m); bgTick((n) => n + 1); }} />
+              ))}
+              <Chip size="small" label="Default" variant="outlined" onClick={() => { setItemBg(asset.id, null); bgTick((n) => n + 1); }} />
+            </Stack>
+            <Stack direction="row" spacing={0.5} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
+              <Button size="small" variant="outlined" startIcon={<Copy size={15} />} onClick={() => copy(asset.url)}>Copy link</Button>
+              <Button size="small" variant="outlined" startIcon={<Download size={15} />} component="a" href={asset.url} download={asset.filename || undefined} target="_blank" rel="noopener">Download</Button>
+              <Button size="small" variant="outlined" startIcon={<Share2 size={15} />} onClick={share} disabled={busy}>Share</Button>
+              {asset.thumbnailUrl && <Button size="small" variant="outlined" startIcon={<Sparkles size={15} />} onClick={aiTag} disabled={aiBusy || busy}>{aiBusy ? 'Tagging…' : 'AI tag'}</Button>}
+            </Stack>
+            {shareUrl && (
+              <Stack direction="row" spacing={1} sx={{ mt: 1 }} alignItems="center">
+                <TextField size="small" fullWidth value={shareUrl} InputProps={{ readOnly: true }} />
+                <Button size="small" variant="outlined" onClick={() => copy(shareUrl)}>Copy</Button>
+              </Stack>
+            )}
           </Box>
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.75, flexWrap: 'wrap' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>Background:</Typography>
-            {PREVIEW_BGS.map((m) => (
-              <Chip key={m} size="small" label={PREVIEW_BG_LABEL[m]}
-                variant={getItemBg(asset.id) === m ? 'filled' : 'outlined'}
-                color={getItemBg(asset.id) === m ? 'primary' : 'default'}
-                onClick={() => { setItemBg(asset.id, m); bgTick((n) => n + 1); }} />
-            ))}
-            <Chip size="small" label="Default" variant="outlined" onClick={() => { setItemBg(asset.id, null); bgTick((n) => n + 1); }} />
-          </Stack>
-          </Box>
+
+          {/* RIGHT — metadata */}
           <Stack spacing={1.5}>
             <TextField size="small" label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <TextField size="small" label="Description" value={description} onChange={(e) => setDescription(e.target.value)} multiline minRows={2} />
+            <TextField size="small" label="Description / alt text" value={description} onChange={(e) => setDescription(e.target.value)} multiline minRows={2} />
             <Stack direction="row" spacing={1}>
               <FormControl size="small" fullWidth><InputLabel>Type</InputLabel>
                 <Select label="Type" value={type} onChange={async (e) => { if (e.target.value === '__add__') { const s = await addType(); if (s) setType(s as Asset['type']); } else setType(e.target.value as Asset['type']); }}>
@@ -151,49 +171,51 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
               renderTags={(value, getTagProps) => value.map((option, index) => <Chip {...getTagProps({ index })} key={option} label={option} size="small" />)}
               renderInput={(params) => <TextField {...params} label="Tags" placeholder="Add tag + Enter" />}
             />
-            <Button variant="contained" onClick={save} disabled={busy}>Save changes</Button>
+            <Box><Button variant="contained" onClick={save} disabled={busy}>Save changes</Button></Box>
+
+            {/* Placement */}
+            <Divider />
+            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>Placement</Typography>
+            <Stack direction="row" spacing={1}>
+              <FormControl size="small" fullWidth>
+                <InputLabel>Move to folder</InputLabel>
+                <Select label="Move to folder" value={collectionId} onChange={(e) => setCollectionId(e.target.value)}>
+                  {collections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <Button size="small" variant="outlined" onClick={moveToCollection} disabled={busy || !collectionId}>Move</Button>
+            </Stack>
+            {(asset.collections?.length ?? 0) > 0 && (
+              <Box>
+                <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.25 }}>
+                  <ImageIcon size={14} />
+                  <Typography variant="caption" color="text.secondary">Use as folder cover</Typography>
+                </Stack>
+                <Stack direction="row" flexWrap="wrap" useFlexGap>
+                  {(asset.collections || []).map((col) => (
+                    <FormControlLabel key={col.id}
+                      control={<Checkbox size="small" checked={coverIds.has(col.id)} disabled={busy} onChange={(e) => toggleCover(col.id, e.target.checked)} />}
+                      label={<Typography variant="body2">{col.name}</Typography>} />
+                  ))}
+                </Stack>
+              </Box>
+            )}
+
+            {/* File management */}
+            <Divider />
+            <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Button size="small" component="label" startIcon={<RefreshCw size={15} />} disabled={busy}>
+                Replace file
+                <input hidden type="file" onChange={(e) => { replaceFile(e.target.files); e.currentTarget.value = ''; }} />
+              </Button>
+              <Button size="small" startIcon={<History size={15} />} onClick={() => (versions ? setVersions(null) : loadVersions())}>Versions</Button>
+              <Box sx={{ flex: 1 }} />
+              <Tooltip title="Delete asset (removes the file)">
+                <Button size="small" color="error" startIcon={<Trash2 size={15} />} onClick={del} disabled={busy}>Delete</Button>
+              </Tooltip>
+            </Stack>
           </Stack>
         </Box>
-
-        <Divider sx={{ my: 2 }} />
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
-          <Button size="small" startIcon={<Copy size={15} />} onClick={() => copy(asset.url)}>Copy URL</Button>
-          <Button size="small" startIcon={<Download size={15} />} component="a" href={asset.url} target="_blank" rel="noopener">Download</Button>
-          <Button size="small" startIcon={<Share2 size={15} />} onClick={share} disabled={busy}>Create share link</Button>
-          {asset.thumbnailUrl && <Button size="small" startIcon={<Sparkles size={15} />} onClick={aiTag} disabled={aiBusy || busy}>{aiBusy ? 'AI tagging…' : 'AI tag'}</Button>}
-          <Button size="small" component="label" startIcon={<RefreshCw size={15} />} disabled={busy}>
-            Replace file
-            <input hidden type="file" onChange={(e) => { replaceFile(e.target.files); e.currentTarget.value = ''; }} />
-          </Button>
-          <Button size="small" startIcon={<History size={15} />} onClick={() => (versions ? setVersions(null) : loadVersions())}>Versions</Button>
-          <Box sx={{ flex: 1 }} />
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Move to collection</InputLabel>
-            <Select label="Move to collection" value={collectionId} onChange={(e) => setCollectionId(e.target.value)}>
-              {collections.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <Button size="small" onClick={moveToCollection} disabled={busy || !collectionId}>Move</Button>
-          <Button size="small" color="error" startIcon={<Trash2 size={15} />} onClick={del} disabled={busy}>Delete</Button>
-        </Stack>
-        {(asset.collections?.length ?? 0) > 0 && (
-          <>
-            <Divider sx={{ my: 2 }} />
-            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
-              <ImageIcon size={15} />
-              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>Use as folder cover / thumbnail</Typography>
-            </Stack>
-            <Stack direction="row" flexWrap="wrap" useFlexGap>
-              {(asset.collections || []).map((col) => (
-                <FormControlLabel
-                  key={col.id}
-                  control={<Checkbox size="small" checked={coverIds.has(col.id)} disabled={busy} onChange={(e) => toggleCover(col.id, e.target.checked)} />}
-                  label={col.name}
-                />
-              ))}
-            </Stack>
-          </>
-        )}
         {versions && (
           <>
             <Divider sx={{ my: 2 }} />
@@ -218,12 +240,6 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
                 </Stack>
               )}
           </>
-        )}
-        {shareUrl && (
-          <Stack direction="row" spacing={1} sx={{ mt: 1.5 }} alignItems="center">
-            <TextField size="small" fullWidth value={shareUrl} InputProps={{ readOnly: true }} />
-            <Button size="small" variant="outlined" onClick={() => copy(shareUrl)}>Copy</Button>
-          </Stack>
         )}
       </DialogContent>
     </Dialog>

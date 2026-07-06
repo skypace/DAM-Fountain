@@ -194,6 +194,9 @@ export function LibraryPage() {
   }, [shownAssets, collections, collection]);
 
   const hasFilters = !!(q || type || brand || tag || collection || media);
+  // Nothing is shown until the operator searches or narrows down — a search /
+  // filter / collection / brand scope / tag / media / type must be active.
+  const browsing = hasFilters || brandScope !== 'all';
   const clearFilters = () => { setQ(''); setType(''); setBrand(''); setTag(''); setCollection(''); setMedia(''); };
   const selectedIds = [...selected];
 
@@ -365,7 +368,13 @@ export function LibraryPage() {
 
       {error && <Alert severity="warning" action={<Button size="small" onClick={load}>Retry</Button>}>{error}</Alert>}
 
-      {loading ? <GridSkeleton />
+      {!browsing ? (
+        <EmptyState
+          icon={<Search size={28} />}
+          title="Search or pick a folder to begin"
+          description="Type in the search box, choose a brand in the sidebar, or select a collection, type, or tag above. Results appear once you narrow down."
+        />
+      ) : loading ? <GridSkeleton />
         : !shownAssets.length ? (
           <EmptyState
             icon={<Images size={28} />}

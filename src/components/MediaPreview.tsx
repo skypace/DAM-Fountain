@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Box, CircularProgress, Stack, Typography } from '@mui/material';
+import { PenTool } from 'lucide-react';
 import { mediaKind, MEDIA_META } from '../lib/media';
 
 const isPdf = (url: string, filename?: string | null, ct?: string | null) =>
   /\.pdf(\?|#|$)/i.test(url) || /\.pdf$/i.test(filename || '') || ct === 'application/pdf';
+// Design source / edit files browsers can't render (Illustrator, EPS, Photoshop,
+// Sketch, Figma, XD, InDesign, Affinity). Shown as a labeled placeholder.
+const SOURCE_EXT = /\.(ai|eps|psd|psb|sketch|fig|xd|indd|idml|afdesign|afphoto|cdr)(\?|#|$)/i;
+const isSource = (url: string, filename?: string | null) => SOURCE_EXT.test(filename || '') || SOURCE_EXT.test(url);
 const isHeic = (url: string, filename?: string | null, ct?: string | null) =>
   /\.hei[cf](\?|#|$)/i.test(url) || /\.hei[cf]$/i.test(filename || '') || /image\/hei[cf]/i.test(ct || '');
 
@@ -64,6 +69,21 @@ export function MediaPreview({ url, filename, contentType, variant, alt, fit }: 
 
   if (isHeic(url, filename, contentType)) {
     return <HeicImage url={url} alt={alt} />;
+  }
+
+  // Design source / edit files (.ai .eps .psd …) can't be rendered by browsers —
+  // show a clear labeled placeholder instead of a broken image.
+  if (isSource(url, filename)) {
+    const ext = (filename || url).split('.').pop()?.split(/[?#]/)[0]?.toUpperCase() || 'FILE';
+    return (
+      <Stack alignItems="center" justifyContent="center" spacing={full ? 1 : 0.5} sx={{ width: '100%', height: '100%', color: MEDIA_META.design.color, p: 1, textAlign: 'center' }}>
+        <PenTool size={full ? 44 : 30} />
+        <Typography sx={{ fontWeight: 800, fontSize: full ? 20 : 15, letterSpacing: '.5px' }}>{ext}</Typography>
+        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', lineHeight: 1.15, color: 'text.secondary', fontSize: full ? 12 : 9.5 }}>
+          Source · Edit File
+        </Typography>
+      </Stack>
+    );
   }
 
   if (kind === 'image' || kind === 'vector') {

@@ -7,6 +7,7 @@ import { api, downloadZip } from '../lib/api';
 import { dtHasFiles, readDropped, uploadDroppedTree } from '../lib/dnd';
 import { AssetGrid } from '../components/AssetGrid';
 import { AssetDialog } from '../components/AssetDialog';
+import { BulkActionBar } from '../components/BulkActionBar';
 import { FolderCard } from '../components/FolderCard';
 import { useToast } from '../components/Toast';
 
@@ -145,6 +146,16 @@ export function CollectionDetailPage() {
       )}
 
       <AssetGrid assets={assets} onOpen={setOpen} selectable={selecting} selected={selected} onToggleSelect={toggle} />
+
+      {selected.size > 0 && (
+        <BulkActionBar
+          ids={[...selected]}
+          assets={assets}
+          collections={collections}
+          onDone={() => { setSelected(new Set()); setSelecting(false); load(); }}
+          onClear={() => setSelected(new Set())}
+        />
+      )}
 
       {open && (
         <AssetDialog asset={open} collections={collections} allTags={allTags.map((t) => t.name)}

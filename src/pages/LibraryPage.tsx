@@ -485,7 +485,7 @@ export function LibraryPage() {
           <AssetGrid assets={shownAssets} onOpen={setOpen} selectable={selectMode} selected={selected} onToggleSelect={toggleSelect} />
         )}
 
-      {(selectMode || view === 'table') && selectedIds.length > 0 && (
+      {selectedIds.length > 0 && (
         <BulkActionBar
           ids={selectedIds}
           assets={assets}

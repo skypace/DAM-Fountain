@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Box, Button, Chip, Divider, FormControl, InputLabel, MenuItem, Paper, Select, Stack, TextField, Tooltip,
 } from '@mui/material';
-import { Download, Trash2, X, Tag as TagIcon, Sparkles } from 'lucide-react';
+import { Download, Trash2, X, Tag as TagIcon, Sparkles, FileText } from 'lucide-react';
 import type { Asset, Collection } from '../lib/types';
 import { STATUSES } from '../lib/types';
 import { api, downloadZip } from '../lib/api';
@@ -24,6 +24,7 @@ export function BulkActionBar({ ids, assets, collections, onDone, onClear }: {
   const { types: typeList, addType } = useTypes();
   const [busy, setBusy] = useState(false);
   const [tag, setTag] = useState('');
+  const [desc, setDesc] = useState('');
 
   async function run(body: Parameters<typeof api.bulkAssets>[0], label: string) {
     setBusy(true);
@@ -41,12 +42,23 @@ export function BulkActionBar({ ids, assets, collections, onDone, onClear }: {
 
   async function aiTagAll() {
     const images = selectedAssets.filter((a) => { const k = mediaKind(a.content_type, a.filename); return k === 'image' || k === 'vector'; });
-    if (!images.length) { toast('Select image assets to AI-tag.'); return; }
+    const skipped = selectedAssets.length - images.length;
+    if (!images.length) { toast('AI tagging needs image or vector files — none in the selection.'); return; }
     setBusy(true);
     let ok = 0;
+    let lastErr = '';
     try {
-      for (const a of images) { try { await api.aiTag(a.id); ok++; } catch { /* skip */ } }
-      toast(`AI-tagged ${ok} image${ok === 1 ? '' : 's'}.`); onDone();
+      for (const a of images) {
+        try { await api.aiTag(a.id); ok++; }
+        catch (e) { lastErr = e instanceof Error ? e.message : String(e); }
+      }
+      if (ok) {
+        const tail = skipped ? ` (${skipped} non-image skipped)` : '';
+        toast(`AI-tagged ${ok} of ${images.length} image${images.length === 1 ? '' : 's'}${tail}.`);
+        onDone();
+      } else {
+        toast(`AI tagging failed${lastErr ? `: ${lastErr}` : '.'}`);
+      }
     } finally { setBusy(false); }
   }
 
@@ -70,6 +82,16 @@ export function BulkActionBar({ ids, assets, collections, onDone, onClear }: {
           InputProps={{ startAdornment: <TagIcon size={14} style={{ marginRight: 6, opacity: 0.6 }} /> }}
         />
       </Stack>
+
+      <Tooltip title="Set a shared description on all selected — press Enter to apply">
+        <TextField
+          size="small" placeholder="set description…" value={desc} onChange={(e) => setDesc(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && desc.trim()) { run({ ids, description: desc.trim() }, 'Description set'); setDesc(''); } }}
+          disabled={busy}
+          sx={{ width: 190 }}
+          InputProps={{ startAdornment: <FileText size={14} style={{ marginRight: 6, opacity: 0.6 }} /> }}
+        />
+      </Tooltip>
 
       <FormControl size="small" sx={{ minWidth: 150 }}>
         <InputLabel>Move to collection</InputLabel>

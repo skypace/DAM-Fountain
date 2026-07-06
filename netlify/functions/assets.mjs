@@ -72,7 +72,10 @@ function asArray(v) {
 async function resolveTagIds(names) {
   const clean = [...new Set((names || []).map((n) => String(n).trim().toLowerCase()).filter(Boolean))];
   if (!clean.length) return [];
-  await db('POST', 'tags', { body: clean.map((name) => ({ name })), prefer: 'resolution=merge-duplicates,return=minimal' });
+  // on_conflict=name is required — tags.name has its own unique constraint, so a
+  // plain merge-duplicates (which targets the PK id) throws tags_name_key on any
+  // tag that already exists. This is what silently broke bulk + single tagging.
+  await db('POST', 'tags?on_conflict=name', { body: clean.map((name) => ({ name })), prefer: 'resolution=merge-duplicates,return=minimal' });
   const rows = await db('GET', `tags?select=id,name&name=in.(${clean.map((n) => `"${n.replace(/"/g, '')}"`).join(',')})`);
   return rows.map((r) => r.id);
 }
@@ -80,7 +83,7 @@ async function resolveTagIds(names) {
 async function setAssetTags(assetId, names) {
   await db('DELETE', `asset_tags?asset_id=eq.${q(assetId)}`);
   const ids = await resolveTagIds(names);
-  if (ids.length) await db('POST', 'asset_tags', { body: ids.map((tag_id) => ({ asset_id: assetId, tag_id })), prefer: 'return=minimal' });
+  if (ids.length) await db('POST', 'asset_tags?on_conflict=asset_id,tag_id', { body: ids.map((tag_id) => ({ asset_id: assetId, tag_id })), prefer: 'resolution=merge-duplicates,return=minimal' });
 }
 
 async function insertAsset(fields, tags) {
@@ -279,6 +282,8 @@ async function handleBulk(payload) {
   if (payload.status) patch.status = payload.status;
   if (payload.brand && BRANDS.includes(payload.brand)) patch.brand = payload.brand;
   if (payload.type && TYPES.includes(payload.type)) patch.type = payload.type;
+  // Bulk "add specifics" — set a shared description across the selection.
+  if (typeof payload.description === 'string') patch.description = payload.description;
   if (Object.keys(patch).length) {
     patch.updated_at = new Date().toISOString();
     await db('PATCH', `assets?id=in.${inList}`, { body: patch, prefer: 'return=minimal' });
@@ -288,7 +293,7 @@ async function handleBulk(payload) {
     const tagIds = await resolveTagIds(payload.addTags);
     const rows = [];
     for (const asset_id of ids) for (const tag_id of tagIds) rows.push({ asset_id, tag_id });
-    if (rows.length) await db('POST', 'asset_tags', { body: rows, prefer: 'resolution=merge-duplicates,return=minimal' });
+    if (rows.length) await db('POST', 'asset_tags?on_conflict=asset_id,tag_id', { body: rows, prefer: 'resolution=merge-duplicates,return=minimal' });
   }
 
   if (payload.collectionId) {

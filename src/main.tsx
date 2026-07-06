@@ -18,6 +18,7 @@ import { CollectionDetailPage } from './pages/CollectionDetailPage';
 import { GuidelinesPage } from './pages/GuidelinesPage';
 import { SharesPage } from './pages/SharesPage';
 import { MembersPage } from './pages/MembersPage';
+import { MaintenancePage } from './pages/MaintenancePage';
 import { SharePublicPage } from './pages/SharePublicPage';
 import { BrandPortalPage } from './pages/BrandPortalPage';
 
@@ -45,6 +46,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     <Route path="/guidelines" element={<GuidelinesPage />} />
                     <Route path="/shares" element={<SharesPage />} />
                     <Route path="/members" element={<MembersPage />} />
+                    <Route path="/maintenance" element={<MaintenancePage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </AppShell>

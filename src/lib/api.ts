@@ -68,6 +68,9 @@ export const api = {
   updateAsset: (body: Omit<Partial<Asset>, 'tags'> & { id: string; tags?: string[] }) =>
     call<{ asset: Asset }>('/assets', { method: 'PATCH', body: JSON.stringify(body) }).then((r) => r.asset),
   deleteAsset: (id: string) => call<{ ok: boolean }>(`/assets?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  listTrash: () => call<{ assets: Asset[] }>('/assets?trash=1').then((r) => r.assets),
+  restoreAssets: (ids: string[]) => call<{ ok: boolean }>('/assets', { method: 'POST', body: JSON.stringify({ action: 'untrash', ids }) }),
+  purgeAsset: (id: string) => call<{ ok: boolean }>(`/assets?id=${encodeURIComponent(id)}&purge=1`, { method: 'DELETE' }),
   bulkAssets: (body: { ids: string[]; status?: string; brand?: string; type?: string; addTags?: string[]; collectionId?: string; delete?: boolean }) =>
     call<{ ok: boolean; count: number }>('/assets', { method: 'POST', body: JSON.stringify({ action: 'bulk', ...body }) }),
   aiTag: (assetId: string) => call<{ tags: string[]; description: string }>('/ai-tag', { method: 'POST', body: JSON.stringify({ assetId }) }),

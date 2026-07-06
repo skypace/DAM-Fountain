@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Box, Button, FormControl, InputAdornment, InputLabel, MenuItem, Paper, Select, Stack, TextField, Typography } from '@mui/material';
-import { Images, FolderOpen, Share2, Users, LogOut, BookOpen, Search, X, FileImage, LayoutDashboard } from 'lucide-react';
+import { Images, FolderOpen, Share2, Users, LogOut, BookOpen, Search, X, FileImage, LayoutDashboard, Wrench } from 'lucide-react';
 import { getSession, logout } from '../lib/auth';
 import { api } from '../lib/api';
 import { useBrands } from '../lib/useBrands';
@@ -17,6 +17,7 @@ const NAV = [
   { to: '/guidelines', label: 'Guidelines', icon: BookOpen },
   { to: '/shares', label: 'Share Links', icon: Share2 },
   { to: '/members', label: 'Users', icon: Users },
+  { to: '/maintenance', label: 'Maintenance', icon: Wrench },
 ];
 
 // Collapsible sidebar search: shows a box, and reveals matching collections +

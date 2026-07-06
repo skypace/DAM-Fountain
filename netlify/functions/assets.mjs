@@ -108,6 +108,8 @@ async function handleList(event) {
   }
 
   const parts = ['select=*,asset_tags(tag:tags(id,name)),collection_assets(collection:collections(id,name))', 'order=created_at.desc'];
+  // Trash view lists soft-deleted rows; otherwise only live (deleted_at null).
+  parts.push(p.trash ? 'deleted_at=not.is.null' : 'deleted_at=is.null');
   if (idFilter) parts.push(`id=in.(${idFilter.join(',')})`);
   if (p.type && TYPES.includes(p.type)) parts.push(`type=eq.${q(p.type)}`);
   if (p.brand && BRANDS.includes(p.brand)) parts.push(`brand=eq.${q(p.brand)}`);
@@ -127,6 +129,12 @@ async function handleUpload(event, auth) {
   if (payload.action === 'register') return handleRegister(payload, auth);
   if (payload.action === 'replace') return handleReplace(payload, auth);
   if (payload.action === 'restore') return handleRestore(payload, auth);
+  if (payload.action === 'untrash') {
+    const ids = Array.isArray(payload.ids) ? payload.ids : (payload.id ? [payload.id] : []);
+    if (!ids.length) return json({ error: 'id(s) required' }, 400);
+    await db('PATCH', `assets?id=in.(${ids.map(q).join(',')})`, { body: { deleted_at: null }, prefer: 'return=minimal' });
+    return json({ ok: true, restored: ids.length });
+  }
 
   const { filename, dataBase64, type, brand, title, description, tags } = payload;
   if (!dataBase64) return json({ error: 'dataBase64 is required' }, 400);
@@ -365,12 +373,19 @@ async function handlePatch(event) {
 
 async function handleDelete(event) {
   const id = event.queryStringParameters?.id;
+  const purge = event.queryStringParameters?.purge === '1';
   if (!id) return json({ error: 'id required' }, 400);
   const rows = await db('GET', `assets?id=eq.${q(id)}&select=storage_path`);
   if (!rows.length) return json({ error: 'not found' }, 404);
-  await storageDelete(rows[0].storage_path).catch(() => {});
-  await db('DELETE', `assets?id=eq.${q(id)}`);
-  return json({ ok: true });
+  if (purge) {
+    // Permanent delete (from Trash): remove the file + row.
+    await storageDelete(rows[0].storage_path).catch(() => {});
+    await db('DELETE', `assets?id=eq.${q(id)}`);
+    return json({ ok: true, purged: true });
+  }
+  // Soft delete → Trash. File is kept so it can be restored.
+  await db('PATCH', `assets?id=eq.${q(id)}`, { body: { deleted_at: new Date().toISOString() }, prefer: 'return=minimal' });
+  return json({ ok: true, trashed: true });
 }
 
 export async function handler(event) {

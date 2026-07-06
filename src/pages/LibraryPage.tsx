@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Alert, Box, Button, Chip, CircularProgress, FormControl, InputAdornment, InputLabel, LinearProgress, Menu,
-  MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
+  Alert, Box, Button, Chip, CircularProgress, Divider, FormControl, InputAdornment, InputLabel, LinearProgress, Menu,
+  MenuItem, Paper, Popover, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
-import { Upload, Globe, Download, Search, Images, MoreVertical, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus, UploadCloud, Sun, Moon, Grid3x3, Ban, Sparkles } from 'lucide-react';
+import { Upload, Globe, Download, Search, Images, X, LayoutGrid, Table as TableIcon, Share2, FolderOpen, FolderPlus, UploadCloud, Sun, Moon, Grid3x3, Ban, Sparkles, Plus, SlidersHorizontal, CheckSquare } from 'lucide-react';
 import type { Asset, Collection, Tag } from '../lib/types';
 import { api, type AssetFilters } from '../lib/api';
 import { useBrands } from '../lib/useBrands';
@@ -26,7 +26,7 @@ export function LibraryPage() {
   const toast = useToast();
   const navigate = useNavigate();
   const { brands: brandList } = useBrands();
-  const { types: typeList, addType } = useTypes();
+  const { types: typeList } = useTypes();
   const [brandScope] = useBrandScope();
   const [previewBg, setPreviewBg] = usePreviewBg();
   const [searchParams] = useSearchParams();
@@ -46,10 +46,11 @@ export function LibraryPage() {
   const [tag, setTag] = useState('');
   const [collection, setCollection] = useState('');
   const [media, setMedia] = useState('');
-  const [uploadType, setUploadType] = useState('other');
+  const [uploadType] = useState('other');
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [addAnchor, setAddAnchor] = useState<null | HTMLElement>(null);
+  const [filterAnchor, setFilterAnchor] = useState<null | HTMLElement>(null);
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const folderRef = useRef<HTMLInputElement | null>(null);
   const [dropOver, setDropOver] = useState(false);
@@ -164,7 +165,7 @@ export function LibraryPage() {
   // One-click: run Claude vision on every image that has no description yet
   // (a proxy for "not AI-tagged"), 3 at a time, with the progress overlay.
   async function aiTagUntagged() {
-    setMenuAnchor(null); setBusy(true);
+    setAddAnchor(null); setBusy(true);
     try {
       const all = await api.listAssets({});
       const targets = all.filter((a) => mediaKind(a.content_type, a.filename) === 'image' && !a.description);
@@ -220,6 +221,13 @@ export function LibraryPage() {
   }, [assets]);
 
   const hasFilters = !!(q || type || brand || tag || collection || media);
+  const activeFilterCount = [type, brand, tag, media].filter(Boolean).length;
+  const activeFilterChips = ([
+    type ? { key: 'type', label: `Type: ${typeList.find((t) => t.slug === type)?.label || type}`, clear: () => setType('') } : null,
+    brand ? { key: 'brand', label: `Brand: ${brandList.find((b) => b.slug === brand)?.label || brand}`, clear: () => setBrand('') } : null,
+    tag ? { key: 'tag', label: `Tag: ${tags.find((t) => t.id === tag)?.name || tag}`, clear: () => setTag('') } : null,
+    media ? { key: 'media', label: `Media: ${MEDIA_META[media as keyof typeof MEDIA_META]?.label || media}`, clear: () => setMedia('') } : null,
+  ].filter(Boolean)) as { key: string; label: string; clear: () => void }[];
   // Nothing is shown until the operator searches or narrows down — a search /
   // filter / collection / brand scope / tag / media / type must be active.
   const browsing = hasFilters || brandScope !== 'all';
@@ -265,42 +273,36 @@ export function LibraryPage() {
         subtitle={`${shownAssets.length} asset${shownAssets.length === 1 ? '' : 's'}${hasFilters ? ' · filtered' : ''} · Alameda Soda + Brix`}
         actions={(
           <>
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Upload as</InputLabel>
-              <Select label="Upload as" value={uploadType} onChange={async (e) => { if (e.target.value === '__add__') { const s = await addType(); if (s) setUploadType(s); } else setUploadType(e.target.value); }}>
-                {typeList.map((t) => <MenuItem key={t.slug} value={t.slug}>{t.label}</MenuItem>)}
-                <MenuItem value="__add__" sx={{ fontStyle: 'italic' }}>＋ Add type…</MenuItem>
-              </Select>
-            </FormControl>
-            <Button component="label" variant="contained" startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Upload size={16} />} disabled={busy}>
-              Upload
-              <input hidden type="file" multiple onChange={(e) => { upload(e.target.files); e.currentTarget.value = ''; }} />
-            </Button>
-            <Tooltip title="Upload folders — each folder becomes a collection">
-              <Button variant="outlined" startIcon={<FolderPlus size={16} />} disabled={busy} onClick={() => folderRef.current?.click()}>
-                Upload folder
+            {view === 'grid' && (
+              <Button variant={selectMode ? 'contained' : 'outlined'} color="secondary" startIcon={<CheckSquare size={16} />} onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}>
+                {selectMode ? 'Done' : 'Select'}
               </Button>
-            </Tooltip>
+            )}
+            <Button variant="contained" startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Plus size={16} />} disabled={busy} onClick={(e) => setAddAnchor(e.currentTarget)}>Add</Button>
+            <Menu anchorEl={addAnchor} open={!!addAnchor} onClose={() => setAddAnchor(null)}>
+              <MenuItem component="label">
+                <Upload size={15} style={{ marginRight: 10 }} /> Upload files
+                <input hidden type="file" multiple onChange={(e) => { setAddAnchor(null); upload(e.target.files); e.currentTarget.value = ''; }} />
+              </MenuItem>
+              <MenuItem onClick={() => { setAddAnchor(null); folderRef.current?.click(); }}>
+                <FolderPlus size={15} style={{ marginRight: 10 }} /> Upload folders
+              </MenuItem>
+              <MenuItem onClick={() => { setAddAnchor(null); setShowImport(true); }}>
+                <Globe size={15} style={{ marginRight: 10 }} /> Import from URL
+              </MenuItem>
+              <Divider />
+              <MenuItem disabled={busy} onClick={() => { setAddAnchor(null); migrate(); }}>
+                <Download size={15} style={{ marginRight: 10 }} /> Register existing bucket files
+              </MenuItem>
+              <MenuItem disabled={busy} onClick={() => { setAddAnchor(null); aiTagUntagged(); }}>
+                <Sparkles size={15} style={{ marginRight: 10 }} /> AI-tag untagged images
+              </MenuItem>
+            </Menu>
             <input
               ref={(el) => { folderRef.current = el; if (el) { el.setAttribute('webkitdirectory', ''); el.setAttribute('directory', ''); } }}
               hidden type="file" multiple
               onChange={(e) => { uploadFolders(e.target.files); e.currentTarget.value = ''; }}
             />
-            <Button variant="outlined" startIcon={<Globe size={16} />} onClick={() => setShowImport((v) => !v)}>Import URL</Button>
-            {view === 'grid' && (
-              <Button variant={selectMode ? 'contained' : 'outlined'} color="secondary" onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}>
-                {selectMode ? 'Done' : 'Select'}
-              </Button>
-            )}
-            <Button variant="text" sx={{ minWidth: 0, px: 1 }} onClick={(e) => setMenuAnchor(e.currentTarget)} aria-label="More actions"><MoreVertical size={18} /></Button>
-            <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
-              <MenuItem disabled={busy} onClick={() => { setMenuAnchor(null); migrate(); }}>
-                <Download size={15} style={{ marginRight: 8 }} /> Register existing bucket files
-              </MenuItem>
-              <MenuItem disabled={busy} onClick={aiTagUntagged}>
-                <Sparkles size={15} style={{ marginRight: 8 }} /> AI-tag untagged images
-              </MenuItem>
-            </Menu>
           </>
         )}
       />
@@ -361,22 +363,40 @@ export function LibraryPage() {
         </Paper>
       )}
 
-      <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 3 }}>
+      <Paper variant="outlined" sx={{ p: 1, borderRadius: 3 }}>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
           <TextField
             size="small" placeholder="Search assets…" value={q} onChange={(e) => setQ(e.target.value)}
-            sx={{ minWidth: 220, flex: 1 }}
-            InputProps={{ startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment> }}
+            sx={{ minWidth: 200, flex: 1 }}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><Search size={16} /></InputAdornment>,
+              endAdornment: q ? <InputAdornment position="end"><X size={15} style={{ cursor: 'pointer' }} onClick={() => setQ('')} /></InputAdornment> : undefined,
+            }}
           />
-          <FormControl size="small" sx={{ minWidth: 130 }}><InputLabel>Type</InputLabel>
-            <Select label="Type" value={type} onChange={(e) => setType(e.target.value)}><MenuItem value="">All types</MenuItem>{typeList.map((t) => <MenuItem key={t.slug} value={t.slug}>{t.label}</MenuItem>)}</Select></FormControl>
-          <FormControl size="small" sx={{ minWidth: 130 }}><InputLabel>Brand</InputLabel>
-            <Select label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)}><MenuItem value="">All brands</MenuItem>{brandList.map((b) => <MenuItem key={b.slug} value={b.slug}>{b.label}</MenuItem>)}</Select></FormControl>
-          <FormControl size="small" sx={{ minWidth: 140 }}><InputLabel>Tag</InputLabel>
-            <Select label="Tag" value={tag} onChange={(e) => setTag(e.target.value)}><MenuItem value="">All tags</MenuItem>{tags.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.count})</MenuItem>)}</Select></FormControl>
-          <FormControl size="small" sx={{ minWidth: 140 }}><InputLabel>Media</InputLabel>
-            <Select label="Media" value={media} onChange={(e) => setMedia(e.target.value)}><MenuItem value="">All media</MenuItem>{MEDIA_KINDS.map((k) => <MenuItem key={k} value={k}>{MEDIA_META[k].label}</MenuItem>)}</Select></FormControl>
-          {hasFilters && <Button size="small" color="inherit" startIcon={<X size={14} />} onClick={clearFilters}>Clear</Button>}
+          <Button
+            size="small" variant={activeFilterCount ? 'contained' : 'outlined'} color={activeFilterCount ? 'primary' : 'inherit'}
+            startIcon={<SlidersHorizontal size={15} />} onClick={(e) => setFilterAnchor(e.currentTarget)}
+          >
+            Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''}
+          </Button>
+          <Popover
+            open={!!filterAnchor} anchorEl={filterAnchor} onClose={() => setFilterAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            slotProps={{ paper: { sx: { p: 2, width: 300, borderRadius: 3 } } }}
+          >
+            <Stack spacing={1.5}>
+              <FormControl size="small" fullWidth><InputLabel>Type</InputLabel>
+                <Select label="Type" value={type} onChange={(e) => setType(e.target.value)}><MenuItem value="">All types</MenuItem>{typeList.map((t) => <MenuItem key={t.slug} value={t.slug}>{t.label}</MenuItem>)}</Select></FormControl>
+              <FormControl size="small" fullWidth><InputLabel>Brand</InputLabel>
+                <Select label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)}><MenuItem value="">All brands</MenuItem>{brandList.map((b) => <MenuItem key={b.slug} value={b.slug}>{b.label}</MenuItem>)}</Select></FormControl>
+              <FormControl size="small" fullWidth><InputLabel>Tag</InputLabel>
+                <Select label="Tag" value={tag} onChange={(e) => setTag(e.target.value)}><MenuItem value="">All tags</MenuItem>{tags.map((t) => <MenuItem key={t.id} value={t.id}>{t.name} ({t.count})</MenuItem>)}</Select></FormControl>
+              <FormControl size="small" fullWidth><InputLabel>Media</InputLabel>
+                <Select label="Media" value={media} onChange={(e) => setMedia(e.target.value)}><MenuItem value="">All media</MenuItem>{MEDIA_KINDS.map((k) => <MenuItem key={k} value={k}>{MEDIA_META[k].label}</MenuItem>)}</Select></FormControl>
+              {activeFilterCount > 0 && <Button size="small" color="inherit" startIcon={<X size={14} />} onClick={() => { clearFilters(); setFilterAnchor(null); }}>Clear filters</Button>}
+            </Stack>
+          </Popover>
+          <Box sx={{ flex: 1 }} />
           <ToggleButtonGroup
             size="small" exclusive value={view}
             onChange={(_, v) => { if (v) { setView(v); setSelectMode(false); setSelected(new Set()); } }}
@@ -394,6 +414,13 @@ export function LibraryPage() {
             <ToggleButton value="diecut" aria-label="Die-cut / transparency"><Tooltip title="Die cut (transparency)"><Grid3x3 size={16} /></Tooltip></ToggleButton>
           </ToggleButtonGroup>
         </Stack>
+        {activeFilterChips.length > 0 && (
+          <Stack direction="row" spacing={0.75} sx={{ mt: 1, flexWrap: 'wrap' }} useFlexGap>
+            {activeFilterChips.map((f) => (
+              <Chip key={f.key} size="small" label={f.label} onDelete={f.clear} />
+            ))}
+          </Stack>
+        )}
       </Paper>
 
       {error && <Alert severity="warning" action={<Button size="small" onClick={load}>Retry</Button>}>{error}</Alert>}

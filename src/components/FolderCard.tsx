@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Box, CircularProgress, IconButton, Menu, MenuItem, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, CircularProgress, Divider, IconButton, Menu, MenuItem, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { FolderOpen, Trash2, Palette, Check, GripVertical } from 'lucide-react';
 import type { Collection } from '../lib/types';
 import { api } from '../lib/api';
 import { dtHasFiles, readAssetIds, readFolderId, readDropped, uploadDroppedTree } from '../lib/dnd';
-import { usePreviewBg, previewBgSx, setItemBg, getItemBg, PREVIEW_BGS, PREVIEW_BG_LABEL } from '../lib/previewBg';
+import { usePreviewBg, previewBgSx, setItemBg, getItemBg, setItemFit, getItemFit, PREVIEW_BGS, PREVIEW_BG_LABEL } from '../lib/previewBg';
 import { MediaPreview } from './MediaPreview';
 import { useToast } from './Toast';
 
@@ -26,7 +26,7 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged, sortable, 
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState<number | null>(null);
-  const [, , bgFor] = usePreviewBg();
+  const [, , bgFor, fitFor] = usePreviewBg();
   const [bgMenu, setBgMenu] = useState<null | HTMLElement>(null);
 
   const onDragStart = (e: React.DragEvent) => {
@@ -87,7 +87,7 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged, sortable, 
             <CircularProgress size={22} variant={pct === null ? 'indeterminate' : 'determinate'} value={pct ?? 0} />
             {pct !== null && <Typography variant="caption" color="text.secondary">{pct}%</Typography>}
           </Stack>
-        ) : c.cover ? <Box sx={{ width: '100%', height: '100%', pointerEvents: 'none' }}><MediaPreview url={c.cover.url} filename={c.cover.filename} contentType={c.cover.content_type} variant="thumb" alt={c.name} fit="contain" /></Box>
+        ) : c.cover ? <Box sx={{ width: '100%', height: '100%', pointerEvents: 'none' }}><MediaPreview url={c.cover.url} filename={c.cover.filename} contentType={c.cover.content_type} variant="thumb" alt={c.name} fit={fitFor(c.id)} /></Box>
           : <FolderOpen size={28} opacity={0.4} />}
         {c.cover && (
           <Tooltip title="Folder background">
@@ -105,7 +105,17 @@ export function FolderCard({ collection, onOpen, onDelete, onChanged, sortable, 
             </MenuItem>
           ))}
           <MenuItem dense onClick={() => { setItemBg(c.id, null); setBgMenu(null); }}>
-            <Box sx={{ width: 21 }} />Use default
+            <Box sx={{ width: 21 }} />Default background
+          </MenuItem>
+          <Divider />
+          <Typography variant="caption" sx={{ px: 2, py: 0.5, display: 'block', color: 'text.secondary' }}>Image fit</Typography>
+          <MenuItem dense onClick={() => { setItemFit(c.id, 'contain'); setBgMenu(null); }}>
+            {(getItemFit(c.id) || 'contain') === 'contain' ? <Check size={13} style={{ marginRight: 8 }} /> : <Box sx={{ width: 21 }} />}
+            Fit whole image
+          </MenuItem>
+          <MenuItem dense onClick={() => { setItemFit(c.id, 'cover'); setBgMenu(null); }}>
+            {getItemFit(c.id) === 'cover' ? <Check size={13} style={{ marginRight: 8 }} /> : <Box sx={{ width: 21 }} />}
+            Fill folder (crop)
           </MenuItem>
         </Menu>
       </Box>

@@ -15,7 +15,7 @@ export function AssetGrid({ assets, onOpen, selectable, selected, onToggleSelect
 }) {
   const [, , bgFor] = usePreviewBg();
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 2 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 2 }}>
       {assets.map((a) => {
         const isSel = !!(selectable && selected?.has(a.id));
         const act = () => (selectable && onToggleSelect ? onToggleSelect(a.id) : onOpen(a));

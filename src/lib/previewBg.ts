@@ -12,8 +12,10 @@ export const PREVIEW_BG_LABEL: Record<PreviewBg, string> = {
   light: 'White', dark: 'Dark', none: 'None', diecut: 'Die cut',
 };
 
+export type CoverFit = 'contain' | 'cover';
 const KEY = 'fountain_preview_bg';
 const OVR_KEY = 'fountain_bg_overrides';
+const FIT_KEY = 'fountain_fit_overrides';
 const EVT = 'fountain:previewbg';
 
 function norm(v: unknown): PreviewBg {
@@ -43,6 +45,21 @@ export function setItemBg(id: string, v: PreviewBg | null) {
   window.dispatchEvent(new CustomEvent(EVT));
 }
 
+// Per-item cover fit (contain = whole image shown, cover = fill+crop).
+function readFits(): Record<string, CoverFit> {
+  try { return JSON.parse(localStorage.getItem(FIT_KEY) || '{}'); } catch { return {}; }
+}
+export function getItemFit(id: string): CoverFit | null {
+  const v = readFits()[id];
+  return v === 'cover' || v === 'contain' ? v : null;
+}
+export function setItemFit(id: string, v: CoverFit | null) {
+  const all = readFits();
+  if (v) all[id] = v; else delete all[id];
+  localStorage.setItem(FIT_KEY, JSON.stringify(all));
+  window.dispatchEvent(new CustomEvent(EVT));
+}
+
 export function previewBgSx(mode: PreviewBg) {
   if (mode === 'dark') return { bgcolor: '#0f172a' };
   if (mode === 'none') return { bgcolor: 'transparent' };
@@ -60,7 +77,7 @@ export function previewBgSx(mode: PreviewBg) {
 
 // Global preview background + a live-updating per-item resolver. `bgFor(id)`
 // returns the item's override if set, else the global default.
-export function usePreviewBg(): [PreviewBg, (v: PreviewBg) => void, (id?: string | null) => PreviewBg] {
+export function usePreviewBg(): [PreviewBg, (v: PreviewBg) => void, (id?: string | null) => PreviewBg, (id?: string | null) => CoverFit] {
   const [mode, setMode] = useState<PreviewBg>(getPreviewBg);
   const [, bump] = useState(0);
   useEffect(() => {
@@ -71,5 +88,6 @@ export function usePreviewBg(): [PreviewBg, (v: PreviewBg) => void, (id?: string
     return () => { window.removeEventListener(EVT, onEvt); window.removeEventListener('storage', onStorage); };
   }, []);
   const bgFor = (id?: string | null) => (id && getItemBg(id)) || mode;
-  return [mode, setPreviewBg, bgFor];
+  const fitFor = (id?: string | null): CoverFit => (id && getItemFit(id)) || 'contain';
+  return [mode, setPreviewBg, bgFor, fitFor];
 }

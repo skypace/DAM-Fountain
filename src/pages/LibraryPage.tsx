@@ -408,13 +408,13 @@ export function LibraryPage() {
           {recentlyViewed.length > 0 && (
             <Box>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>Recently viewed</Typography>
-              <AssetGrid assets={recentlyViewed} onOpen={setOpen} />
+              <AssetGrid assets={recentlyViewed} onOpen={setOpen} selectable={selectMode} selected={selected} onToggleSelect={toggleSelect} />
             </Box>
           )}
           {recentlyAdded.length > 0 && (
             <Box>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>Recently added</Typography>
-              <AssetGrid assets={recentlyAdded} onOpen={setOpen} />
+              <AssetGrid assets={recentlyAdded} onOpen={setOpen} selectable={selectMode} selected={selected} onToggleSelect={toggleSelect} />
             </Box>
           )}
         </Stack>

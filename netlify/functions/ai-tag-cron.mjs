@@ -18,6 +18,13 @@ async function resolveTagIds(names) {
   return rows.map((r) => r.id);
 }
 
+// Anthropic vision accepts only these raster formats.
+const OK_IMG = /\.(png|jpe?g|gif|webp)(\?|#|$)/i;
+// Stamp a fallback description so a skipped/failed row isn't re-picked forever.
+async function markFallback(asset) {
+  await db('PATCH', `assets?id=eq.${q(asset.id)}`, { body: { description: asset.filename || 'asset', updated_at: new Date().toISOString() }, prefer: 'return=minimal' });
+}
+
 async function tagOne(asset) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -49,13 +56,18 @@ export async function handler(event) {
   let processed = 0, failed = 0;
   try {
     const rows = await db('GET', `assets?select=id,storage_path,filename&content_type=like.image/*&or=(description.is.null,description.eq.)&order=created_at.asc&limit=${limit}`);
+    let skipped = 0;
     for (const a of rows) {
       if (Date.now() - started > 22000) break; // stay under the function timeout
-      try { await tagOne(a); processed++; } catch { failed++; }
+      // Unsupported formats (svg/tiff/heic/avif/bmp/pdf-as-image) can't go to
+      // vision — mark a fallback so they clear out of the queue.
+      if (!OK_IMG.test(a.storage_path)) { try { await markFallback(a); } catch { /* ignore */ } skipped++; continue; }
+      try { await tagOne(a); processed++; }
+      catch { try { await markFallback(a); } catch { /* ignore */ } failed++; }
     }
     // Rough remaining count for the caller's progress loop.
     const rem = await db('GET', 'assets?select=id&content_type=like.image/*&or=(description.is.null,description.eq.)&limit=1000');
-    return { statusCode: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ processed, failed, remaining: rem.length }) };
+    return { statusCode: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ processed, skipped, failed, remaining: rem.length }) };
   } catch (e) {
     return { statusCode: 500, body: JSON.stringify({ error: e instanceof Error ? e.message : String(e), processed, failed }) };
   }

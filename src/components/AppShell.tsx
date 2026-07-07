@@ -1,11 +1,12 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Box, Button, FormControl, InputAdornment, InputLabel, MenuItem, Paper, Select, Stack, TextField, Typography } from '@mui/material';
-import { Images, FolderOpen, Share2, Users, LogOut, BookOpen, Search, X, FileImage, LayoutDashboard, Wrench } from 'lucide-react';
+import { Images, FolderOpen, Share2, Users, LogOut, BookOpen, Search, X, FileImage, LayoutDashboard, Wrench, Code2 } from 'lucide-react';
 import { getSession, logout } from '../lib/auth';
 import { api } from '../lib/api';
 import { useBrands } from '../lib/useBrands';
 import { useBrandScope } from '../lib/brandScope';
+import { useIsAdmin } from '../lib/useIsAdmin';
 import type { Asset, Collection } from '../lib/types';
 import { CommandPalette } from './CommandPalette';
 import { ToastProvider } from './Toast';
@@ -18,6 +19,11 @@ const NAV = [
   { to: '/shares', label: 'Share Links', icon: Share2 },
   { to: '/members', label: 'Users', icon: Users },
   { to: '/maintenance', label: 'Maintenance', icon: Wrench },
+];
+
+// Admin-only nav items (gated by /whoami).
+const ADMIN_NAV = [
+  { to: '/api', label: 'API', icon: Code2 },
 ];
 
 // Solid light sidebar — a soft periwinkle-slate tinted with the Brix navy.
@@ -126,7 +132,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const loc = useLocation();
   const email = getSession()?.email;
   const active = (to: string) => (to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(to));
-  const nav = useMemo(() => NAV, []);
+  const isAdmin = useIsAdmin();
+  const nav = useMemo(() => (isAdmin ? [...NAV, ...ADMIN_NAV] : NAV), [isAdmin]);
 
   return (
     <ToastProvider>

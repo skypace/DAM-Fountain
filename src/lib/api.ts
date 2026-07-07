@@ -139,6 +139,7 @@ export const api = {
     return { name: file.name, path: sign.path, contentType: file.type, url: brandAssetUrl(sign.path) };
   },
 
+  whoami: () => call<{ role: string; email?: string; isAdmin: boolean }>('/whoami'),
   listMembers: () => call<{ members: Member[] }>('/members').then((r) => r.members),
   addMember: (email: string, role: string) => call<{ status: string }>('/members', { method: 'POST', body: JSON.stringify({ email, role }) }),
   setMemberRole: (user_id: string, role: string) => call<{ ok: boolean }>('/members', { method: 'PATCH', body: JSON.stringify({ user_id, role }) }),

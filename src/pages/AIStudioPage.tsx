@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Checkbox, Chip, CircularProgress, Divider, FormControl, FormControlLabel,
   InputLabel, MenuItem, Paper, Select, Slider, Stack, TextField, Typography,
 } from '@mui/material';
-import { Sparkles, Wand2, Save, Download, ShieldAlert, Upload, X } from 'lucide-react';
+import { Sparkles, Wand2, Save, Download, ShieldAlert, Upload, X, Crop } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader';
 import { useIsAdmin } from '../lib/useIsAdmin';
 import { useBrands } from '../lib/useBrands';
@@ -52,6 +52,12 @@ export function AIStudioPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [refineText, setRefineText] = useState('');
   const [refining, setRefining] = useState(false);
+  // Region selector: normalized {x,y,w,h} 0..1 over the preview image.
+  const [region, setRegion] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [regionMode, setRegionMode] = useState(false);
+  const [draft, setDraft] = useState<{ l: number; t: number; w: number; h: number } | null>(null);
+  const drawStart = useRef<{ x: number; y: number } | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
   const [saveTitle, setSaveTitle] = useState('');
   const [saveType, setSaveType] = useState('hero');
   const [saveBrand, setSaveBrand] = useState('shared');
@@ -90,7 +96,7 @@ export function AIStudioPage() {
   }
 
   async function generate() {
-    setBusy(true); setPreview(null); setSavedUrl(null);
+    setBusy(true); setPreview(null); setSavedUrl(null); setRegion(null); setRegionMode(false);
     try {
       const effectiveBrand = brand || selected[0]?.brand || undefined;
       const r = await api.generateImage({
@@ -111,26 +117,79 @@ export function AIStudioPage() {
     } finally { setBusy(false); }
   }
 
+  // Burn a magenta marker onto a copy of the preview so the model edits only that
+  // region. Returns the plain preview if no region is selected.
+  function annotatedBase(): Promise<{ data: string; mime: string }> {
+    return new Promise((resolve, reject) => {
+      if (!preview) return reject(new Error('no image'));
+      if (!region) return resolve({ data: preview, mime: preview.slice(5, preview.indexOf(';')) || 'image/png' });
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        const ctx = c.getContext('2d');
+        if (!ctx) return reject(new Error('canvas unavailable'));
+        ctx.drawImage(img, 0, 0);
+        const x = region.x * c.width, y = region.y * c.height, w = region.w * c.width, h = region.h * c.height;
+        ctx.fillStyle = 'rgba(255,0,255,0.16)'; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = '#ff00ff'; ctx.lineWidth = Math.max(4, c.width * 0.006); ctx.strokeRect(x, y, w, h);
+        resolve({ data: c.toDataURL('image/png'), mime: 'image/png' });
+      };
+      img.onerror = () => reject(new Error('image load failed'));
+      img.src = preview;
+    });
+  }
+
   // Iterative edit: feed the current preview back in + a change instruction.
   async function refine() {
     if (!preview || !refineText.trim()) return;
     setRefining(true);
     try {
+      const base = await annotatedBase();
+      const instruction = region
+        ? `Edit ONLY the area inside the magenta rectangle; do NOT render the rectangle in the output and blend the edit seamlessly with the rest of the image. Change: ${refineText.trim()}`
+        : refineText.trim();
       const r = await api.generateImage({
-        baseImage: preview,
-        baseMime: preview.slice(5, preview.indexOf(';')) || 'image/png',
+        baseImage: base.data,
+        baseMime: base.mime,
         assetIds: selected.map((s) => s.id),
         uploadData: upload?.dataUrl,
         uploadMime: upload ? upload.dataUrl.slice(5, upload.dataUrl.indexOf(';')) : undefined,
-        prompt: refineText.trim(),
+        prompt: instruction,
         brand: brand || selected[0]?.brand || undefined,
         useBrandGuidelines: useGuidelines,
         useBrandImages: false,
       });
       setPreview(r.image);
       setRefineText('');
+      setRegion(null); setRegionMode(false);
     } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
     finally { setRefining(false); }
+  }
+
+  // Pointer handlers for drawing the region box over the preview.
+  function onOverlayDown(e: React.PointerEvent) {
+    const el = overlayRef.current; if (!el) return;
+    const rect = el.getBoundingClientRect();
+    drawStart.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    setDraft({ l: drawStart.current.x, t: drawStart.current.y, w: 0, h: 0 });
+    el.setPointerCapture(e.pointerId);
+  }
+  function onOverlayMove(e: React.PointerEvent) {
+    if (!drawStart.current || !overlayRef.current) return;
+    const rect = overlayRef.current.getBoundingClientRect();
+    const cx = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const cy = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+    const l = Math.min(drawStart.current.x, cx), t = Math.min(drawStart.current.y, cy);
+    setDraft({ l, t, w: Math.abs(cx - drawStart.current.x), h: Math.abs(cy - drawStart.current.y) });
+  }
+  function onOverlayUp() {
+    const el = overlayRef.current;
+    if (draft && el && draft.w > 6 && draft.h > 6) {
+      const rect = el.getBoundingClientRect();
+      setRegion({ x: draft.l / rect.width, y: draft.t / rect.height, w: draft.w / rect.width, h: draft.h / rect.height });
+    }
+    drawStart.current = null; setDraft(null);
   }
 
   async function save() {
@@ -258,22 +317,48 @@ export function AIStudioPage() {
             <Stack direction="row" spacing={1} alignItems="center"><Sparkles size={18} /><Typography variant="subtitle1" fontWeight={800}>4 · Preview & save</Typography></Stack>
             <Box sx={{ borderRadius: 1, border: '1px dashed', borderColor: 'divider', minHeight: 300, display: 'grid', placeItems: 'center', overflow: 'hidden', bgcolor: 'action.hover' }}>
               {busy ? <CircularProgress />
-                : preview ? <Box component="img" src={preview} alt="Generated" sx={{ maxWidth: '100%', maxHeight: 460, display: 'block' }} />
+                : preview ? (
+                  <Box sx={{ position: 'relative', display: 'inline-block', lineHeight: 0 }}>
+                    <Box component="img" src={preview} alt="Generated" sx={{ maxWidth: '100%', maxHeight: 460, display: 'block' }} />
+                    {regionMode && (
+                      <Box
+                        ref={overlayRef}
+                        onPointerDown={onOverlayDown} onPointerMove={onOverlayMove} onPointerUp={onOverlayUp}
+                        sx={{ position: 'absolute', inset: 0, cursor: 'crosshair', touchAction: 'none' }}
+                      >
+                        {(draft || region) && (() => {
+                          const r = draft
+                            ? { left: draft.l, top: draft.t, width: draft.w, height: draft.h }
+                            : { left: `${region!.x * 100}%`, top: `${region!.y * 100}%`, width: `${region!.w * 100}%`, height: `${region!.h * 100}%` };
+                          return <Box sx={{ position: 'absolute', ...r, border: '2px solid #d500f9', bgcolor: 'rgba(213,0,249,.18)', pointerEvents: 'none' }} />;
+                        })()}
+                      </Box>
+                    )}
+                  </Box>
+                )
                 : <Typography variant="body2" color="text.secondary" sx={{ p: 3, textAlign: 'center' }}>Your generated graphic appears here.</Typography>}
             </Box>
             {preview && (
               <>
                 <Divider><Typography variant="caption" color="text.secondary">Refine (edit this image)</Typography></Divider>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Button size="small" variant={regionMode ? 'contained' : 'outlined'} startIcon={<Crop size={15} />}
+                    onClick={() => { setRegionMode((v) => !v); if (regionMode) setRegion(null); }}>
+                    {regionMode ? 'Selecting area' : 'Select area'}
+                  </Button>
+                  {region && <Chip size="small" color="secondary" label="Area set — edit applies here" onDelete={() => setRegion(null)} />}
+                  {regionMode && !region && <Typography variant="caption" color="text.secondary">Drag a box on the image to target the change.</Typography>}
+                </Stack>
                 <Stack direction="row" spacing={1} alignItems="flex-start">
                   <TextField
                     size="small" fullWidth multiline minRows={1}
-                    placeholder="Change it — e.g. “remove the straw”, “make it brighter”, “replace B with C”, “add A to the left”"
+                    placeholder={region ? 'Change just the selected area — e.g. “put a lime wedge here”, “remove this”' : 'Change it — e.g. “remove the straw”, “make it brighter”, “replace B with C”, “add A to the left”'}
                     value={refineText} onChange={(e) => setRefineText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) refine(); }}
                   />
                   <Button variant="contained" sx={{ whiteSpace: 'nowrap' }} startIcon={refining ? <CircularProgress size={16} /> : <Wand2 size={16} />} disabled={refining || !refineText.trim()} onClick={refine}>Apply change</Button>
                 </Stack>
-                <Typography variant="caption" color="text.secondary">Each change edits the image above. Keep any products you want swapped in selected on the left (A/B/C).</Typography>
+                <Typography variant="caption" color="text.secondary">Each change edits the image above. Use <b>Select area</b> to target one spot, or keep products selected on the left (A/B/C) to swap them in.</Typography>
                 <Divider />
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   <TextField size="small" label="Title" value={saveTitle} onChange={(e) => setSaveTitle(e.target.value)} sx={{ flex: 1, minWidth: 180 }} />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Checkbox, Chip, CircularProgress, Divider, FormControl, FormControlLabel,
   InputLabel, MenuItem, Paper, Select, Slider, Stack, TextField, Typography,
@@ -50,6 +50,8 @@ export function AIStudioPage() {
 
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [refineText, setRefineText] = useState('');
+  const [refining, setRefining] = useState(false);
   const [saveTitle, setSaveTitle] = useState('');
   const [saveType, setSaveType] = useState('hero');
   const [saveBrand, setSaveBrand] = useState('shared');
@@ -75,9 +77,11 @@ export function AIStudioPage() {
     if (!brand && selected[0]?.brand && selected[0].brand !== 'shared') setBrand(selected[0].brand);
   }, [selected, brand]);
 
-  const selectedIds = useMemo(() => new Set(selected.map((s) => s.id)), [selected]);
   const toggle = (a: Asset) => setSelected((cur) => cur.some((x) => x.id === a.id) ? cur.filter((x) => x.id !== a.id) : [...cur, a]);
   const canGenerate = (prompt.trim().length > 3 || selected.length > 0 || !!upload) && !busy;
+  // Labels are assigned in the same order the backend receives them: upload first, then selected.
+  const letter = (i: number) => String.fromCharCode(65 + i);
+  const selLetter = (i: number) => letter((upload ? 1 : 0) + i);
 
   async function onUpload(files: FileList | null) {
     const f = files?.[0]; if (!f) return;
@@ -105,6 +109,28 @@ export function AIStudioPage() {
     } catch (e) {
       toast(e instanceof Error ? e.message : String(e));
     } finally { setBusy(false); }
+  }
+
+  // Iterative edit: feed the current preview back in + a change instruction.
+  async function refine() {
+    if (!preview || !refineText.trim()) return;
+    setRefining(true);
+    try {
+      const r = await api.generateImage({
+        baseImage: preview,
+        baseMime: preview.slice(5, preview.indexOf(';')) || 'image/png',
+        assetIds: selected.map((s) => s.id),
+        uploadData: upload?.dataUrl,
+        uploadMime: upload ? upload.dataUrl.slice(5, upload.dataUrl.indexOf(';')) : undefined,
+        prompt: refineText.trim(),
+        brand: brand || selected[0]?.brand || undefined,
+        useBrandGuidelines: useGuidelines,
+        useBrandImages: false,
+      });
+      setPreview(r.image);
+      setRefineText('');
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+    finally { setRefining(false); }
   }
 
   async function save() {
@@ -161,25 +187,32 @@ export function AIStudioPage() {
                 {upload && (
                   <Box sx={{ position: 'relative', borderRadius: 1, overflow: 'hidden', bgcolor: 'action.hover', aspectRatio: '1', border: '2px solid', borderColor: 'success.main' }}>
                     <Box component="img" src={upload.dataUrl} alt="" sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    <Box sx={{ position: 'absolute', top: 2, left: 2, width: 18, height: 18, borderRadius: '50%', bgcolor: 'success.main', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800 }}>A</Box>
                     <Chip size="small" color="success" label="Upload" sx={{ position: 'absolute', bottom: 2, left: 2, height: 18, fontSize: 10 }} />
                     <Box component="button" onClick={() => setUpload(null)} sx={{ position: 'absolute', top: 2, right: 2, border: 'none', cursor: 'pointer', bgcolor: 'rgba(0,0,0,.6)', color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'grid', placeItems: 'center' }}><X size={11} /></Box>
                   </Box>
                 )}
                 {results.map((a) => {
-                  const sel = selectedIds.has(a.id);
+                  const idx = selected.findIndex((x) => x.id === a.id);
+                  const sel = idx >= 0;
                   return (
                     <Box key={a.id} component="button" type="button" onClick={() => toggle(a)} title={a.title || a.filename || ''}
                       sx={{ position: 'relative', p: 0, cursor: 'pointer', borderRadius: 1, overflow: 'hidden', bgcolor: 'action.hover', aspectRatio: '1', border: '2px solid', borderColor: sel ? 'primary.main' : 'divider' }}>
                       <Box component="img" src={a.thumbnailUrl || a.url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                      {sel && <Box sx={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', bgcolor: 'primary.main', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800 }}>✓</Box>}
+                      {sel && <Box sx={{ position: 'absolute', top: 2, right: 2, minWidth: 18, height: 18, px: 0.5, borderRadius: 9, bgcolor: 'primary.main', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800 }}>{selLetter(idx)}</Box>}
                     </Box>
                   );
                 })}
                 {!results.length && !searching && <Typography variant="caption" color="text.secondary" sx={{ gridColumn: '1 / -1', py: 1 }}>No matches — try fewer / different words.</Typography>}
               </Box>
+              {(upload || selected.length > 0) && (
+                <Typography variant="caption" color="text.secondary">
+                  Reference by letter in your prompt: {[upload ? 'A = upload' : null, ...selected.map((s, i) => `${selLetter(i)} = ${s.title || s.filename}`)].filter(Boolean).join(' · ')}
+                </Typography>
+              )}
               {selected.length > 0 && (
                 <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                  {selected.map((s) => <Chip key={s.id} size="small" label={s.title || s.filename} onDelete={() => toggle(s)} />)}
+                  {selected.map((s, i) => <Chip key={s.id} size="small" label={`${selLetter(i)} · ${s.title || s.filename}`} onDelete={() => toggle(s)} />)}
                 </Stack>
               )}
             </Stack>
@@ -209,7 +242,7 @@ export function AIStudioPage() {
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
             <Stack spacing={1.25}>
               <Typography variant="subtitle1" fontWeight={800}>3 · Describe the scene</Typography>
-              <TextField multiline minRows={3} placeholder="e.g. merge these into a hero banner on a marble bar top, warm evening light" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+              <TextField multiline minRows={3} placeholder="e.g. put A on the bar top and B in the blurred background, warm evening light" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
               <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                 {PRESETS.map((p) => <Chip key={p} size="small" variant="outlined" label={p.split(',')[0]} onClick={() => setPrompt(p)} />)}
               </Stack>
@@ -230,6 +263,17 @@ export function AIStudioPage() {
             </Box>
             {preview && (
               <>
+                <Divider><Typography variant="caption" color="text.secondary">Refine (edit this image)</Typography></Divider>
+                <Stack direction="row" spacing={1} alignItems="flex-start">
+                  <TextField
+                    size="small" fullWidth multiline minRows={1}
+                    placeholder="Change it — e.g. “remove the straw”, “make it brighter”, “replace B with C”, “add A to the left”"
+                    value={refineText} onChange={(e) => setRefineText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) refine(); }}
+                  />
+                  <Button variant="contained" sx={{ whiteSpace: 'nowrap' }} startIcon={refining ? <CircularProgress size={16} /> : <Wand2 size={16} />} disabled={refining || !refineText.trim()} onClick={refine}>Apply change</Button>
+                </Stack>
+                <Typography variant="caption" color="text.secondary">Each change edits the image above. Keep any products you want swapped in selected on the left (A/B/C).</Typography>
                 <Divider />
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   <TextField size="small" label="Title" value={saveTitle} onChange={(e) => setSaveTitle(e.target.value)} sx={{ flex: 1, minWidth: 180 }} />

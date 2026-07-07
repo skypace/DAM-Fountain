@@ -143,6 +143,7 @@ export const api = {
   generateImage: (body: {
     assetId?: string; assetIds?: string[]; imageUrl?: string; imageUrls?: string[];
     uploadData?: string; uploadMime?: string;
+    baseImage?: string; baseMime?: string;
     prompt: string; brand?: string;
     useBrandGuidelines?: boolean; useBrandImages?: boolean; brandImageCount?: number;
     save?: boolean; type?: string; title?: string;

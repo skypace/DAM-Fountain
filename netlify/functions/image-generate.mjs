@@ -56,7 +56,7 @@ async function gatherReferences(payload) {
   let primaryBrand = null, primaryTitle = null;
 
   if (payload.uploadData) {
-    refs.push({ mime: payload.uploadMime || 'image/png', base64: String(payload.uploadData).replace(/^data:[^;]+;base64,/, '') });
+    refs.push({ mime: payload.uploadMime || 'image/png', base64: String(payload.uploadData).replace(/^data:[^;]+;base64,/, ''), name: 'uploaded photo' });
   }
   const ids = [...new Set((Array.isArray(payload.assetIds) ? payload.assetIds : (payload.assetId ? [payload.assetId] : [])).filter(Boolean))].slice(0, 6);
   if (ids.length) {
@@ -64,12 +64,12 @@ async function gatherReferences(payload) {
     const byId = new Map(rows.map((r) => [r.id, r]));
     for (const id of ids) {
       const r = byId.get(id); if (!r) continue;
-      refs.push(await fetchImageBase64(rendered(publicUrl(r.storage_path), 1024)));
+      refs.push({ ...(await fetchImageBase64(rendered(publicUrl(r.storage_path), 1024))), name: r.title || r.filename });
       if (!primaryBrand) { primaryBrand = r.brand; primaryTitle = r.title || r.filename; }
     }
   }
   for (const u of (Array.isArray(payload.imageUrls) ? payload.imageUrls : []).slice(0, 4)) {
-    if (/^https?:\/\//i.test(u)) refs.push(await fetchImageBase64(rendered(u, 1024)));
+    if (/^https?:\/\//i.test(u)) refs.push({ ...(await fetchImageBase64(rendered(u, 1024))), name: 'reference image' });
   }
   return { refs: refs.slice(0, 6), primaryBrand, primaryTitle };
 }
@@ -183,18 +183,39 @@ export async function handler(event) {
     const styleText = payload.useBrandGuidelines && brandSlug ? await brandStyleText(brandSlug) : '';
     const source = { brand: brandSlug || null, title: primaryTitle || null };
 
+    // Refine mode: the client sends the current image back to be edited.
+    const baseImage = payload.baseImage
+      ? { mime: payload.baseMime || 'image/png', base64: String(payload.baseImage).replace(/^data:[^;]+;base64,/, '') }
+      : null;
+
+    // Interleave a label ("Image A:") before each reference so the prompt can
+    // address them by letter — "A sits on the table, B in the background",
+    // "replace B with C", etc. Labels are assigned in the order shown in the UI.
     const parts = [];
-    for (const r of refs) parts.push({ inline_data: { mime_type: r.mime, data: r.base64 } });
+    const legend = [];
+    if (baseImage) {
+      parts.push({ text: 'Current working image (edit THIS image):' });
+      parts.push({ inline_data: { mime_type: baseImage.mime, data: baseImage.base64 } });
+    }
+    refs.forEach((r, i) => {
+      const label = String.fromCharCode(65 + i); // A, B, C…
+      legend.push(`Image ${label}${r.name ? ` = ${r.name}` : ''}`);
+      parts.push({ text: `Image ${label}${r.name ? ` (${r.name})` : ''}:` });
+      parts.push({ inline_data: { mime_type: r.mime, data: r.base64 } });
+    });
     for (const r of identityImgs) parts.push({ inline_data: { mime_type: r.mime, data: r.base64 } });
 
     const instruction = [
-      refs.length
-        ? `You are given ${refs.length} product/reference image(s)${identityImgs.length ? ` plus ${identityImgs.length} brand-style reference(s)` : ''}. Keep every product, label, and logo EXACTLY as-is — do not redraw, relabel, distort, or change any packaging or text.`
-        : '',
-      refs.length > 1 ? 'Merge the provided images into one cohesive, believable composition.' : '',
+      baseImage
+        ? 'Edit the current working image per the instruction below. Preserve everything not mentioned; keep all products, labels, and logos exactly as they are.'
+        : refs.length
+          ? `You are given ${refs.length} labeled reference image(s)${identityImgs.length ? ` plus ${identityImgs.length} brand-style reference(s)` : ''}. Keep every product, label, and logo EXACTLY as-is — do not redraw, relabel, distort, or change packaging or text.`
+          : '',
+      legend.length ? `Labels — ${legend.join('; ')}. When the instruction names a letter (A, B, C…) it refers to these images.` : '',
+      refs.length > 1 && !baseImage ? 'Merge the labeled images into one cohesive, believable composition.' : '',
       identityImgs.length ? 'Match the visual identity — color palette, lighting, and mood — shown in the brand-style reference images.' : '',
       styleText,
-      `Scene / instruction: ${prompt}`,
+      `Instruction: ${prompt}`,
     ].filter(Boolean).join('\n');
     parts.push({ text: instruction });
 

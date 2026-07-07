@@ -15,6 +15,13 @@
   status = 200
   force = true
 
+# Token-gated AI image generation for external tools (e.g. a Framer component).
+[[redirects]]
+  from = "/api/generate"
+  to = "/.netlify/functions/image-generate"
+  status = 200
+  force = true
+
 # SPA fallback — all non-asset, non-function routes serve index.html so the
 # client router (incl. /s/:token public share pages) works on hard refresh.
 [[redirects]]

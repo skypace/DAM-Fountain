@@ -69,8 +69,16 @@ export async function handler(event) {
   const pre = preflight(event); if (pre) return pre;
   if (event.httpMethod !== 'POST') return json({ error: 'POST only' }, 405);
 
-  const auth = await requireRole(event, 'contributor');
-  if (!auth.ok) return json({ error: auth.error }, auth.status);
+  // Two ways in: a DAM contributor's JWT (in-app AI Studio) OR the static
+  // DAM_API_TOKEN (external tools like a Framer component). Token path lets
+  // trusted sites generate — see the abuse caveat in the API docs page.
+  const apiToken = process.env.DAM_API_TOKEN;
+  const hdr = event.headers?.authorization || event.headers?.Authorization || '';
+  const bearer = /^Bearer\s+(.+)$/i.exec(String(hdr).trim())?.[1] || event.queryStringParameters?.key || '';
+  if (!(apiToken && bearer === apiToken)) {
+    const auth = await requireRole(event, 'contributor');
+    if (!auth.ok) return json({ error: auth.error }, auth.status);
+  }
 
   let payload;
   try { payload = JSON.parse(event.body || '{}'); } catch { return json({ error: 'invalid JSON' }, 400); }

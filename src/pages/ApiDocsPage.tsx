@@ -51,7 +51,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export function ApiDocsPage() {
   const isAdmin = useIsAdmin();
-  const base = useMemo(() => `${window.location.origin}/api/assets`, []);
+  // External callers use the branded gateway domain (proxied to this site).
+  const gateway = useMemo(() => ((import.meta.env.VITE_GATEWAY_BASE as string) || 'https://alamedapointbg.com').replace(/\/+$/, ''), []);
+  const base = useMemo(() => `${gateway}/dam/api/assets`, [gateway]);
   const [testToken, setTestToken] = useState('');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);

@@ -15,6 +15,8 @@ import { MediaPreview } from './MediaPreview';
 import { useToast } from './Toast';
 
 const SHARE_BASE = `${location.origin}/s/`;
+// External links go through the gateway so partners see the branded domain.
+const GATEWAY_BASE = ((import.meta.env.VITE_GATEWAY_BASE as string) || 'https://alamedapointbg.com').replace(/\/+$/, '');
 
 export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onDeleted }: {
   asset: Asset;
@@ -134,7 +136,7 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
             <Stack direction="row" spacing={0.5} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
               <Button size="small" variant="outlined" startIcon={<Copy size={15} />} onClick={() => copy(asset.url)}>Copy link</Button>
               <Tooltip title="Stable link that always serves the current version — embed it on a store/partner site and it updates when you replace this asset.">
-                <Button size="small" variant="outlined" startIcon={<Link2 size={15} />} onClick={() => copy(`${location.origin}/i/${asset.id}`)}>Copy live link</Button>
+                <Button size="small" variant="outlined" startIcon={<Link2 size={15} />} onClick={() => copy(`${GATEWAY_BASE}/i/${asset.id}`)}>Copy live link</Button>
               </Tooltip>
               <Button size="small" variant="outlined" startIcon={<Download size={15} />} component="a" href={asset.url} download={asset.filename || undefined} target="_blank" rel="noopener">Download</Button>
               <Button size="small" variant="outlined" startIcon={<Share2 size={15} />} onClick={share} disabled={busy}>Share</Button>

@@ -55,16 +55,20 @@ function StudioHero() {
       <Stack direction="row" spacing={2} alignItems="center" sx={{ position: 'relative' }}>
         <Box
           sx={{
-            width: { xs: 56, md: 66 }, height: { xs: 56, md: 66 }, flexShrink: 0,
-            borderRadius: '20px',
-            background: 'linear-gradient(150deg, #24578a 0%, #1f4e79 55%, #163a5c 100%)',
+            width: { xs: 60, md: 72 }, height: { xs: 60, md: 72 }, flexShrink: 0,
+            borderRadius: '20px', p: 1,
+            background: 'linear-gradient(150deg, #ffffff 0%, #f2f5fa 100%)',
             display: 'grid', placeItems: 'center',
-            boxShadow: '0 10px 22px rgba(31,78,121,.45), inset 0 1px 0 rgba(255,255,255,.25)',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 10px 22px rgba(31,78,121,.20), inset 0 1px 0 rgba(255,255,255,.8)',
           }}
         >
-          <Typography sx={{ fontFamily: DISPLAY, fontWeight: 700, color: '#fff', fontSize: { xs: 26, md: 30 }, lineHeight: 1, letterSpacing: '-1px' }}>
-            <span style={{ verticalAlign: 'super', fontSize: '0.5em', opacity: 0.9 }}>°</span>bx
-          </Typography>
+          <Box
+            component="img"
+            src="/i/404ad4a1-79f0-41eb-b6a1-06d52b6c4759"
+            alt="Brix Beverage"
+            sx={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+          />
         </Box>
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 12, letterSpacing: '3px', textTransform: 'uppercase', color: '#1f4e79' }}>

@@ -20,7 +20,12 @@ function rendered(storagePath, width) {
 export async function handler(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: { 'Access-Control-Allow-Origin': '*' }, body: '' };
   const p = event.queryStringParameters || {};
-  const id = p.id;
+  // id comes from ?id= or the trailing path segment (/i/<id> → …/img-deliver/<id>).
+  let id = p.id;
+  if (!id) {
+    const seg = String(event.path || '').split('/').filter(Boolean).pop();
+    if (seg && seg !== 'img-deliver' && seg !== 'i') id = seg;
+  }
   if (!id) return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'id required' }) };
 
   try {

@@ -26,7 +26,7 @@
 # version. Partners embed it once; replacing the asset updates it everywhere.
 [[redirects]]
   from = "/i/*"
-  to = "/.netlify/functions/img-deliver?id=:splat"
+  to = "/.netlify/functions/img-deliver/:splat"
   status = 200
   force = true
 

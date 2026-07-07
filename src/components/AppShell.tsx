@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Box, Button, FormControl, InputAdornment, InputLabel, MenuItem, Paper, Select, Stack, TextField, Typography } from '@mui/material';
-import { Images, FolderOpen, Share2, Users, LogOut, BookOpen, Search, X, FileImage, LayoutDashboard, Wrench, Code2 } from 'lucide-react';
+import { Images, FolderOpen, Share2, Users, LogOut, BookOpen, Search, X, FileImage, LayoutDashboard, Wrench, Code2, Wand2 } from 'lucide-react';
 import { getSession, logout } from '../lib/auth';
 import { api } from '../lib/api';
 import { useBrands } from '../lib/useBrands';
@@ -23,6 +23,7 @@ const NAV = [
 
 // Admin-only nav items (gated by /whoami).
 const ADMIN_NAV = [
+  { to: '/studio', label: 'AI Studio', icon: Wand2 },
   { to: '/api', label: 'API', icon: Code2 },
 ];
 

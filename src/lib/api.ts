@@ -140,7 +140,13 @@ export const api = {
   },
 
   whoami: () => call<{ role: string; email?: string; isAdmin: boolean }>('/whoami'),
-  generateImage: (body: { assetId?: string; imageUrl?: string; prompt: string; save?: boolean; brand?: string; type?: string; title?: string }) =>
+  generateImage: (body: {
+    assetId?: string; assetIds?: string[]; imageUrl?: string; imageUrls?: string[];
+    uploadData?: string; uploadMime?: string;
+    prompt: string; brand?: string;
+    useBrandGuidelines?: boolean; useBrandImages?: boolean; brandImageCount?: number;
+    save?: boolean; type?: string; title?: string;
+  }) =>
     call<{ image: string; saved: boolean; asset?: { id: string; title: string; brand: string; type: string; url: string } }>('/image-generate', { method: 'POST', body: JSON.stringify(body) }),
   saveGeneratedImage: (body: { imageData: string; mime?: string; assetId?: string; title?: string; brand?: string; type?: string }) =>
     call<{ saved: boolean; asset: { id: string; title: string; brand: string; type: string; url: string } }>('/image-generate', { method: 'POST', body: JSON.stringify({ persist: true, ...body }) }),

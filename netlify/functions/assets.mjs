@@ -117,7 +117,19 @@ async function handleList(event) {
   if (p.type && TYPES.includes(p.type)) parts.push(`type=eq.${q(p.type)}`);
   if (p.brand && BRANDS.includes(p.brand)) parts.push(`brand=eq.${q(p.brand)}`);
   if (p.status) parts.push(`status=eq.${q(p.status)}`);
-  if (p.q) parts.push(`search=wfts(english).${q(p.q)}`);
+  // Forgiving search: split into words, each word must appear (as a substring,
+  // case-insensitive) in the title, filename, or description. Handles partial
+  // terms and hyphenated filenames ("top hat marg" → Top-Hat-…-Margarita) far
+  // better than the old strict full-text match.
+  if (p.q && String(p.q).trim()) {
+    const words = String(p.q).trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
+    const clauses = words.map((w) => {
+      const pat = `*${encodeURIComponent(w.replace(/[,()*]/g, ''))}*`;
+      return `or(title.ilike.${pat},filename.ilike.${pat},description.ilike.${pat})`;
+    });
+    if (clauses.length) parts.push(`and=(${clauses.join(',')})`);
+  }
+  parts.push('limit=500');
 
   const rows = await db('GET', `assets?${parts.join('&')}`);
   return json({ assets: rows.map(shape) });

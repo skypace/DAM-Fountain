@@ -29,13 +29,84 @@ async function fetchImageBase64(url) {
 }
 
 async function resolveSource(payload) {
-  if (payload.assetId) {
-    const rows = await db('GET', `assets?id=eq.${q(payload.assetId)}&select=id,storage_path,brand,title,filename`);
-    if (!rows[0]) throw new Error('source asset not found');
-    return { url: publicUrl(rows[0].storage_path), brand: rows[0].brand, title: rows[0].title || rows[0].filename };
+  const id = payload.assetId || (Array.isArray(payload.assetIds) && payload.assetIds[0]);
+  if (id) {
+    const rows = await db('GET', `assets?id=eq.${q(id)}&select=id,storage_path,brand,title,filename`);
+    if (rows[0]) return { url: publicUrl(rows[0].storage_path), brand: rows[0].brand, title: rows[0].title || rows[0].filename };
   }
   if (payload.imageUrl && /^https?:\/\//i.test(payload.imageUrl)) return { url: payload.imageUrl, brand: null, title: null };
   return null;
+}
+
+// Downscale a Supabase public object URL via the on-the-fly render endpoint so
+// reference images don't blow past Gemini's inline payload limit.
+function rendered(url, width) {
+  if (typeof url === 'string' && url.includes('/storage/v1/object/public/')) {
+    const base = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+    return `${base}${base.includes('?') ? '&' : '?'}width=${width}&quality=82&resize=contain`;
+  }
+  return url;
+}
+
+// Collect every reference image the caller wants merged: an uploaded photo, one
+// or more DAM assets (assetIds / assetId), and any raw imageUrls. Capped so the
+// request stays under Gemini's inline size ceiling.
+async function gatherReferences(payload) {
+  const refs = [];
+  let primaryBrand = null, primaryTitle = null;
+
+  if (payload.uploadData) {
+    refs.push({ mime: payload.uploadMime || 'image/png', base64: String(payload.uploadData).replace(/^data:[^;]+;base64,/, '') });
+  }
+  const ids = [...new Set((Array.isArray(payload.assetIds) ? payload.assetIds : (payload.assetId ? [payload.assetId] : [])).filter(Boolean))].slice(0, 6);
+  if (ids.length) {
+    const rows = await db('GET', `assets?id=in.(${ids.map(q).join(',')})&select=id,storage_path,brand,title,filename`);
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    for (const id of ids) {
+      const r = byId.get(id); if (!r) continue;
+      refs.push(await fetchImageBase64(rendered(publicUrl(r.storage_path), 1024)));
+      if (!primaryBrand) { primaryBrand = r.brand; primaryTitle = r.title || r.filename; }
+    }
+  }
+  for (const u of (Array.isArray(payload.imageUrls) ? payload.imageUrls : []).slice(0, 4)) {
+    if (/^https?:\/\//i.test(u)) refs.push(await fetchImageBase64(rendered(u, 1024)));
+  }
+  return { refs: refs.slice(0, 6), primaryBrand, primaryTitle };
+}
+
+// A few representative images of a brand so the model matches its look.
+async function brandIdentityImages(brand, limit = 3) {
+  if (!isBrand(brand) || limit < 1) return [];
+  const rows = await db('GET', `assets?brand=eq.${q(brand)}&deleted_at=is.null&content_type=ilike.image/*&select=storage_path,type&limit=24`);
+  const pick = [];
+  for (const t of ['logo', 'hero', 'can', 'equipment', 'other']) {
+    const r = rows.find((x) => x.type === t && !pick.includes(x));
+    if (r && pick.length < limit) pick.push(r);
+  }
+  for (const r of rows) { if (pick.length >= limit) break; if (!pick.includes(r)) pick.push(r); }
+  const out = [];
+  for (const r of pick.slice(0, limit)) out.push(await fetchImageBase64(rendered(publicUrl(r.storage_path), 640)));
+  return out;
+}
+
+// Turn a brand's guidelines doc into a compact instruction (colors + fonts + tone).
+async function brandStyleText(brand) {
+  if (!isBrand(brand)) return '';
+  const [glRow, brandRow] = await Promise.all([
+    db('GET', `brand_guidelines?brand=eq.${q(brand)}&select=doc`).then((r) => r[0]).catch(() => null),
+    db('GET', `brands?slug=eq.${q(brand)}&select=label`).then((r) => r[0]).catch(() => null),
+  ]);
+  const doc = glRow?.doc || {};
+  const out = [`Brand: ${brandRow?.label || brand}.`];
+  const colors = (doc.colors || [])
+    .map((c) => [c.name, c.hex, c.pantone && `Pantone ${c.pantone}`, c.cmyk && `CMYK ${c.cmyk}`].filter(Boolean).join(' '))
+    .filter(Boolean);
+  if (colors.length) out.push(`Stay on-brand — use these brand colors where color is applied: ${colors.join('; ')}.`);
+  const fonts = (doc.fonts || []).map((f) => f.name || f.label).filter(Boolean);
+  if (fonts.length) out.push(`Typography feel: ${fonts.join(', ')}.`);
+  const tone = doc.tone || (doc.sections || []).map((s) => s.body || s.text).filter(Boolean).join(' ');
+  if (tone) out.push(`Brand tone/aesthetic: ${String(tone).slice(0, 400)}.`);
+  return out.join(' ');
 }
 
 // Ensure a tag exists + link it (mirrors the on_conflict-safe pattern used elsewhere).
@@ -104,16 +175,28 @@ export async function handler(event) {
   if (!prompt) return json({ error: 'prompt is required' }, 400);
 
   try {
-    const source = await resolveSource(payload);
+    const { refs, primaryBrand, primaryTitle } = await gatherReferences(payload);
+    const brandSlug = isBrand(payload.brand) ? payload.brand : primaryBrand;
+    const identityImgs = payload.useBrandImages && brandSlug
+      ? await brandIdentityImages(brandSlug, Math.min(Number(payload.brandImageCount) || 3, 4))
+      : [];
+    const styleText = payload.useBrandGuidelines && brandSlug ? await brandStyleText(brandSlug) : '';
+    const source = { brand: brandSlug || null, title: primaryTitle || null };
+
     const parts = [];
-    if (source) {
-      const img = await fetchImageBase64(source.url);
-      parts.push({ inline_data: { mime_type: img.mime, data: img.base64 } });
-      // Nudge the model to preserve the real product exactly.
-      parts.push({ text: `Use the provided product image EXACTLY as-is — do not redraw, relabel, or alter the product, its packaging, or text. Composite it into this scene: ${prompt}` });
-    } else {
-      parts.push({ text: prompt });
-    }
+    for (const r of refs) parts.push({ inline_data: { mime_type: r.mime, data: r.base64 } });
+    for (const r of identityImgs) parts.push({ inline_data: { mime_type: r.mime, data: r.base64 } });
+
+    const instruction = [
+      refs.length
+        ? `You are given ${refs.length} product/reference image(s)${identityImgs.length ? ` plus ${identityImgs.length} brand-style reference(s)` : ''}. Keep every product, label, and logo EXACTLY as-is — do not redraw, relabel, distort, or change any packaging or text.`
+        : '',
+      refs.length > 1 ? 'Merge the provided images into one cohesive, believable composition.' : '',
+      identityImgs.length ? 'Match the visual identity — color palette, lighting, and mood — shown in the brand-style reference images.' : '',
+      styleText,
+      `Scene / instruction: ${prompt}`,
+    ].filter(Boolean).join('\n');
+    parts.push({ text: instruction });
 
     const res = await fetch(GEMINI_URL(key), {
       method: 'POST',

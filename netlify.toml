@@ -7,6 +7,14 @@
 [functions."ai-tag-cron"]
   schedule = "*/15 * * * *"
 
+# Clean URL for the read-only public API (token-gated). Must precede the SPA
+# fallback so /api/assets reaches the function, not index.html.
+[[redirects]]
+  from = "/api/assets"
+  to = "/.netlify/functions/dam-api"
+  status = 200
+  force = true
+
 # SPA fallback — all non-asset, non-function routes serve index.html so the
 # client router (incl. /s/:token public share pages) works on hard refresh.
 [[redirects]]

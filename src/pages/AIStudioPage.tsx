@@ -29,6 +29,71 @@ function readFileBase64(file: File): Promise<string> {
   });
 }
 
+const DISPLAY = "'Space Grotesk', 'DM Sans', system-ui, sans-serif";
+
+// Branded header for the studio — °bx logo tile + gradient wordmark on a soft
+// grey field with a subtle navy glow.
+function StudioHero() {
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: 3,
+        p: { xs: 2.5, md: 3.5 },
+        color: '#0f172a',
+        border: '1px solid #e2e8f0',
+        background:
+          'radial-gradient(900px 260px at 12% -30%, rgba(31,78,121,.16), transparent 70%),' +
+          'radial-gradient(700px 240px at 100% 120%, rgba(59,130,246,.14), transparent 70%),' +
+          'linear-gradient(135deg, #ffffff 0%, #eef2f8 60%, #e7ecf4 100%)',
+        boxShadow: '0 10px 30px rgba(15,23,42,.06)',
+      }}
+    >
+      {/* soft sheen */}
+      <Box sx={{ position: 'absolute', top: -40, right: -30, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(59,130,246,.18), transparent 70%)', filter: 'blur(6px)', pointerEvents: 'none' }} />
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ position: 'relative' }}>
+        <Box
+          sx={{
+            width: { xs: 56, md: 66 }, height: { xs: 56, md: 66 }, flexShrink: 0,
+            borderRadius: '20px',
+            background: 'linear-gradient(150deg, #24578a 0%, #1f4e79 55%, #163a5c 100%)',
+            display: 'grid', placeItems: 'center',
+            boxShadow: '0 10px 22px rgba(31,78,121,.45), inset 0 1px 0 rgba(255,255,255,.25)',
+          }}
+        >
+          <Typography sx={{ fontFamily: DISPLAY, fontWeight: 700, color: '#fff', fontSize: { xs: 26, md: 30 }, lineHeight: 1, letterSpacing: '-1px' }}>
+            <span style={{ verticalAlign: 'super', fontSize: '0.5em', opacity: 0.9 }}>°</span>bx
+          </Typography>
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 12, letterSpacing: '3px', textTransform: 'uppercase', color: '#1f4e79' }}>
+            Brix · Generative
+          </Typography>
+          <Typography
+            component="h1"
+            sx={{
+              fontFamily: DISPLAY, fontWeight: 700, lineHeight: 1.02, letterSpacing: '-1.2px',
+              fontSize: { xs: 30, md: 40 },
+              background: 'linear-gradient(92deg, #1f4e79 0%, #2f6fac 45%, #3b82f6 100%)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            }}
+          >
+            AI Studio
+          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+            <Typography variant="body2" sx={{ color: '#475569' }}>
+              Compose on-brand graphics from your real products.
+            </Typography>
+            <Chip size="small" icon={<Sparkles size={13} />} label="Gemini · Nano Banana"
+              sx={{ fontFamily: DISPLAY, fontWeight: 600, bgcolor: 'rgba(31,78,121,.08)', color: '#1f4e79', border: '1px solid rgba(31,78,121,.18)' }} />
+          </Stack>
+        </Box>
+      </Stack>
+    </Box>
+  );
+}
+
 export function AIStudioPage() {
   const isAdmin = useIsAdmin();
   const toast = useToast();
@@ -214,11 +279,8 @@ export function AIStudioPage() {
   }
 
   return (
-    <Stack spacing={2}>
-      <PageHeader
-        title="AI Studio"
-        subtitle="Generate on-brand graphics with Gemini (Nano Banana). Pick one or more real products (and/or upload a photo), describe the scene, and it merges them on-brand."
-      />
+    <Stack spacing={2.5} sx={{ background: 'linear-gradient(180deg, #f8fafc 0%, #eceff5 100%)', p: { xs: 1.5, md: 2 }, borderRadius: 3 }}>
+      <StudioHero />
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
         <Stack spacing={2}>

@@ -22,6 +22,14 @@
   status = 200
   force = true
 
+# Stable "live link" image delivery — /i/<assetId> always serves the current
+# version. Partners embed it once; replacing the asset updates it everywhere.
+[[redirects]]
+  from = "/i/*"
+  to = "/.netlify/functions/img-deliver?id=:splat"
+  status = 200
+  force = true
+
 # SPA fallback — all non-asset, non-function routes serve index.html so the
 # client router (incl. /s/:token public share pages) works on hard refresh.
 [[redirects]]

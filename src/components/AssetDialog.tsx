@@ -3,7 +3,7 @@ import {
   Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogContent, DialogTitle, Divider, FormControl,
   FormControlLabel, IconButton, InputLabel, MenuItem, Select, Stack, TextField, Tooltip, Typography,
 } from '@mui/material';
-import { Copy, Download, Trash2, Share2, Image as ImageIcon, Sparkles, RefreshCw, History, RotateCcw, X } from 'lucide-react';
+import { Copy, Download, Trash2, Share2, Image as ImageIcon, Sparkles, RefreshCw, History, RotateCcw, X, Link2 } from 'lucide-react';
 import type { Asset, AssetVersion, Collection } from '../lib/types';
 import { STATUSES } from '../lib/types';
 import { useBrands } from '../lib/useBrands';
@@ -133,6 +133,9 @@ export function AssetDialog({ asset, collections, allTags, onClose, onSaved, onD
             </Stack>
             <Stack direction="row" spacing={0.5} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
               <Button size="small" variant="outlined" startIcon={<Copy size={15} />} onClick={() => copy(asset.url)}>Copy link</Button>
+              <Tooltip title="Stable link that always serves the current version — embed it on a store/partner site and it updates when you replace this asset.">
+                <Button size="small" variant="outlined" startIcon={<Link2 size={15} />} onClick={() => copy(`${location.origin}/i/${asset.id}`)}>Copy live link</Button>
+              </Tooltip>
               <Button size="small" variant="outlined" startIcon={<Download size={15} />} component="a" href={asset.url} download={asset.filename || undefined} target="_blank" rel="noopener">Download</Button>
               <Button size="small" variant="outlined" startIcon={<Share2 size={15} />} onClick={share} disabled={busy}>Share</Button>
               {asset.thumbnailUrl && <Button size="small" variant="outlined" startIcon={<Sparkles size={15} />} onClick={aiTag} disabled={aiBusy || busy}>{aiBusy ? 'Tagging…' : 'AI tag'}</Button>}

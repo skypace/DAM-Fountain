@@ -6,6 +6,7 @@
 //
 // Gated by BACKFILL_TOKEN (Netlify env) via the X-Backfill-Token header —
 // there is no user in the loop, so JWT auth doesn't apply here.
+// NOTE: functions read env at deploy time — set/rotate BACKFILL_TOKEN, then redeploy.
 //
 //   curl -X POST https://fountain-dam.netlify.app/.netlify/functions/member-backfill \
 //     -H "X-Backfill-Token: $BACKFILL_TOKEN" [-d '{"dry_run":true}']

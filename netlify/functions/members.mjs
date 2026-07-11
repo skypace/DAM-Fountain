@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { preflight, json, requireRole } from './_shared/http.mjs';
 import { db, q, SUPABASE_URL, SERVICE_KEY } from './_shared/supabase.mjs';
+import { sendWelcomeEmail, sendAccessEmail } from './_shared/email.mjs';
 
 const ROLES = ['viewer', 'contributor', 'admin'];
 
@@ -35,17 +36,36 @@ export async function handler(event) {
 
     if (event.httpMethod === 'POST') {
       const b = JSON.parse(event.body || '{}');
+
+      // Reset password + re-send credentials for an existing member.
+      if (b.action === 'resend_welcome') {
+        if (!b.user_id) return json({ error: 'user_id required' }, 400);
+        const rows = await db('GET', `members?user_id=eq.${q(b.user_id)}&select=email,role`);
+        const member = rows?.[0];
+        if (!member) return json({ error: 'member not found' }, 404);
+        const password = randomBytes(12).toString('base64url');
+        await adminApi('PUT', `admin/users/${b.user_id}`, { password });
+        const mail = await sendWelcomeEmail({ to: member.email, password, role: member.role });
+        return json({ ok: true, emailed: mail.sent, email_error: mail.sent ? undefined : mail.error });
+      }
+
       const email = String(b.email || '').trim().toLowerCase();
       const role = ROLES.includes(b.role) ? b.role : 'viewer';
       if (!email) return json({ error: 'email required' }, 400);
       let user = await findUserByEmail(email);
       let status = 'added';
+      let mail = { sent: false };
       if (!user) {
-        user = await adminApi('POST', 'admin/users', { email, email_confirm: true, password: randomBytes(12).toString('base64url') });
+        const password = randomBytes(12).toString('base64url');
+        user = await adminApi('POST', 'admin/users', { email, email_confirm: true, password });
         status = 'created';
+        await db('POST', 'members', { body: { user_id: user.id, email, role, invited_by: auth.user.id }, prefer: 'resolution=merge-duplicates,return=minimal' });
+        mail = await sendWelcomeEmail({ to: email, password, role });
+      } else {
+        await db('POST', 'members', { body: { user_id: user.id, email, role, invited_by: auth.user.id }, prefer: 'resolution=merge-duplicates,return=minimal' });
+        mail = await sendAccessEmail({ to: email, role });
       }
-      await db('POST', 'members', { body: { user_id: user.id, email, role, invited_by: auth.user.id }, prefer: 'resolution=merge-duplicates,return=minimal' });
-      return json({ ok: true, status, member: { user_id: user.id, email, role } }, 201);
+      return json({ ok: true, status, emailed: mail.sent, email_error: mail.sent ? undefined : mail.error, member: { user_id: user.id, email, role } }, 201);
     }
 
     if (event.httpMethod === 'PATCH') {

@@ -3,7 +3,7 @@ import {
   Alert, Box, Button, CircularProgress, FormControl, IconButton, InputLabel, MenuItem,
   Select, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
-import { UserPlus, Trash2 } from 'lucide-react';
+import { UserPlus, Trash2, MailPlus } from 'lucide-react';
 import type { Member, Role } from '../lib/types';
 import { api } from '../lib/api';
 import { PageHeader } from '../components/PageHeader';
@@ -29,11 +29,21 @@ export function MembersPage() {
   async function add() {
     if (!email.trim()) return;
     setBusy(true);
-    try { const r = await api.addMember(email.trim(), role); setEmail(''); await load(); toast(r.status === 'created' ? 'User created + added.' : 'User added.'); }
+    try {
+      const r = await api.addMember(email.trim(), role);
+      setEmail(''); await load();
+      if (r.status === 'created') toast(r.emailed ? 'User created — welcome email sent with sign-in details.' : `User created, but the welcome email failed (${r.email_error || 'email not configured'}). Use the resend button.`);
+      else toast(r.emailed ? 'User added — access notification sent.' : 'User added (notification email not sent).');
+    }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
   async function changeRole(m: Member, r: Role) {
     try { await api.setMemberRole(m.user_id, r); setMembers((cur) => cur.map((x) => (x.user_id === m.user_id ? { ...x, role: r } : x))); toast('Role updated.'); }
+    catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+  }
+  async function resendWelcome(m: Member) {
+    if (!confirm(`Reset ${m.email}'s password and email them new sign-in details?`)) return;
+    try { const r = await api.resendWelcome(m.user_id); toast(r.emailed ? 'Welcome email re-sent with a new temporary password.' : `Password was reset but the email failed (${r.email_error || 'email not configured'}).`); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); }
   }
   async function remove(m: Member) {
@@ -67,7 +77,10 @@ export function MembersPage() {
                     <Select value={m.role} onChange={(e) => changeRole(m, e.target.value as Role)}>{ROLES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}</Select>
                   </FormControl>
                 </TableCell>
-                <TableCell align="right"><IconButton size="small" onClick={() => remove(m)}><Trash2 size={15} /></IconButton></TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" title="Re-send welcome email (resets password)" onClick={() => resendWelcome(m)}><MailPlus size={15} /></IconButton>
+                  <IconButton size="small" title="Remove" onClick={() => remove(m)}><Trash2 size={15} /></IconButton>
+                </TableCell>
               </TableRow>
             ))}
             {!members.length && <TableRow><TableCell colSpan={3}><Typography color="text.secondary" sx={{ py: 1 }}>No members added yet. Superadmins already have access.</Typography></TableCell></TableRow>}

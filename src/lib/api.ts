@@ -152,7 +152,8 @@ export const api = {
   saveGeneratedImage: (body: { imageData: string; mime?: string; assetId?: string; title?: string; brand?: string; type?: string }) =>
     call<{ saved: boolean; asset: { id: string; title: string; brand: string; type: string; url: string } }>('/image-generate', { method: 'POST', body: JSON.stringify({ persist: true, ...body }) }),
   listMembers: () => call<{ members: Member[] }>('/members').then((r) => r.members),
-  addMember: (email: string, role: string) => call<{ status: string }>('/members', { method: 'POST', body: JSON.stringify({ email, role }) }),
+  addMember: (email: string, role: string) => call<{ status: string; emailed: boolean; email_error?: string }>('/members', { method: 'POST', body: JSON.stringify({ email, role }) }),
+  resendWelcome: (user_id: string) => call<{ ok: boolean; emailed: boolean; email_error?: string }>('/members', { method: 'POST', body: JSON.stringify({ action: 'resend_welcome', user_id }) }),
   setMemberRole: (user_id: string, role: string) => call<{ ok: boolean }>('/members', { method: 'PATCH', body: JSON.stringify({ user_id, role }) }),
   removeMember: (user_id: string) => call<{ ok: boolean }>(`/members?user_id=${encodeURIComponent(user_id)}`, { method: 'DELETE' }),
 };

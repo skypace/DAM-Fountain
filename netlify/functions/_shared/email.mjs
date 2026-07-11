@@ -2,6 +2,23 @@
 // Sends via Resend. RESEND_API_KEY must be set in the fountain-dam Netlify env;
 // without it every send is a silent no-op ({ sent: false }) so member creation
 // never fails because of email.
+import { randomBytes } from 'node:crypto';
+
+// Supabase password policy on this project requires lower + upper + digit +
+// symbol. Generate a 16-char temp password guaranteed to satisfy all four.
+export function tempPassword() {
+  const sets = ['abcdefghijkmnpqrstuvwxyz', 'ABCDEFGHJKLMNPQRSTUVWXYZ', '23456789', '!@#$%^&*-_+='];
+  const all = sets.join('');
+  const rb = randomBytes(32);
+  const chars = sets.map((s, i) => s[rb[i] % s.length]);
+  for (let i = 4; i < 16; i++) chars.push(all[rb[i] % all.length]);
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = rb[16 + i] % (i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const FROM = process.env.RESEND_FROM || 'Fountain DAM <alerts@alamedapointbg.com>';
 const DAM_URL = process.env.DAM_PUBLIC_URL || 'https://fountain-dam.netlify.app';

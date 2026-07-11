@@ -1,7 +1,6 @@
-import { randomBytes } from 'node:crypto';
 import { preflight, json, requireRole } from './_shared/http.mjs';
 import { db, q, SUPABASE_URL, SERVICE_KEY } from './_shared/supabase.mjs';
-import { sendWelcomeEmail, sendAccessEmail } from './_shared/email.mjs';
+import { sendWelcomeEmail, sendAccessEmail, tempPassword } from './_shared/email.mjs';
 
 const ROLES = ['viewer', 'contributor', 'admin'];
 
@@ -43,7 +42,7 @@ export async function handler(event) {
         const rows = await db('GET', `members?user_id=eq.${q(b.user_id)}&select=email,role`);
         const member = rows?.[0];
         if (!member) return json({ error: 'member not found' }, 404);
-        const password = randomBytes(12).toString('base64url');
+        const password = tempPassword();
         await adminApi('PUT', `admin/users/${b.user_id}`, { password });
         const mail = await sendWelcomeEmail({ to: member.email, password, role: member.role });
         return json({ ok: true, emailed: mail.sent, email_error: mail.sent ? undefined : mail.error });
@@ -56,7 +55,7 @@ export async function handler(event) {
       let status = 'added';
       let mail = { sent: false };
       if (!user) {
-        const password = randomBytes(12).toString('base64url');
+        const password = tempPassword();
         user = await adminApi('POST', 'admin/users', { email, email_confirm: true, password });
         status = 'created';
         await db('POST', 'members', { body: { user_id: user.id, email, role, invited_by: auth.user.id }, prefer: 'resolution=merge-duplicates,return=minimal' });

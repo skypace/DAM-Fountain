@@ -10,10 +10,9 @@
 //
 //   curl -X POST https://fountain-dam.netlify.app/.netlify/functions/member-backfill \
 //     -H "X-Backfill-Token: $BACKFILL_TOKEN" [-d '{"dry_run":true}']
-import { randomBytes } from 'node:crypto';
 import { preflight, json } from './_shared/http.mjs';
 import { db, SUPABASE_URL, SERVICE_KEY } from './_shared/supabase.mjs';
-import { sendWelcomeEmail, sendAccessEmail } from './_shared/email.mjs';
+import { sendWelcomeEmail, sendAccessEmail, tempPassword } from './_shared/email.mjs';
 
 async function adminApi(method, path, body) {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/${path}`, {
@@ -44,7 +43,7 @@ export async function handler(event) {
       if (dryRun) { results.push({ email: m.email, would: neverSignedIn ? 'welcome+reset' : 'access-note' }); continue; }
       let mail;
       if (neverSignedIn) {
-        const password = randomBytes(12).toString('base64url');
+        const password = tempPassword();
         await adminApi('PUT', `admin/users/${m.user_id}`, { password });
         mail = await sendWelcomeEmail({ to: m.email, password, role: m.role });
         results.push({ email: m.email, action: 'welcome+reset', emailed: mail.sent, error: mail.error });
